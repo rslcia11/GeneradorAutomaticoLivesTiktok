@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>TikTok Live Avatar</title>
+
+    <link rel="stylesheet" href="./styles.css">
+</head>
+
+<body>
+
+    <main id="live-scene" class="live-scene">
+
+        <!-- Estado de conexión -->
+        <div id="connection-status" class="connection-status">
+            Conectando...
+        </div>
+
+        <!-- Información del LIVE -->
+        <section class="live-stats">
+
+            <div class="stat">
+                <span>❤️</span>
+                <span id="like-count">0</span>
+            </div>
+
+            <div class="stat">
+                <span>👥</span>
+                <span id="viewer-count">0</span>
+            </div>
+
+        </section>
+
+        <!-- Avatar provisional -->
+        <section class="avatar-container">
+
+            <div id="avatar" class="avatar">
+                <div class="avatar-face">
+                    <span id="avatar-expression">●‿●</span>
+                </div>
+            </div>
+
+            <div id="avatar-status" class="avatar-status">
+                Esperando interacción...
+            </div>
+
+        </section>
+
+        <!-- Comentario actual -->
+        <section id="comment-card" class="comment-card">
+
+            <div id="comment-user" class="comment-user">
+                Esperando comentario...
+            </div>
+
+            <div id="comment-content" class="comment-content">
+                Los comentarios del LIVE aparecerán aquí.
+            </div>
+
+        </section>
+
+        <!-- Notificación de eventos -->
+        <section
+            id="event-notification"
+            class="event-notification"
+            aria-live="polite"
+        >
+        </section>
+
+    </main>
+
+    <script type="module" src="./overlay.js"></script>
+
+</body>
+</html>

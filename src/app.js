@@ -4,19 +4,31 @@ import { EventProcessor } from './events/EventProcessor.js';
 import { EventRuleEngine } from './rules/EventRuleEngine.js';
 import { PriorityQueue } from './rules/PriorityQueue.js';
 import { QueueWorker } from './workers/QueueWorker.js';
+import { AIService } from './ai/AIService.js';
+import { MockAIProvider } from './ai/MockAIProvider.js';
 
 const config = {
     tiktokUsername: 'maulanimations',
     websocketPort: 8080,
+
     queueMaxSize: 100,
     minGiftDiamondsForPriority: 10,
-    workerPollIntervalMs: 100
+    workerPollIntervalMs: 100,
+
+    aiTimeoutMs: 15000,
+    mockAIDelayMs: 300
 };
 
+/*
+ * Realtime / Overlay
+ */
 const gateway = new RealtimeGateway({
     port: config.websocketPort
 });
 
+/*
+ * Reglas y cola
+ */
 const ruleEngine = new EventRuleEngine({
     minGiftDiamondsForPriority:
         config.minGiftDiamondsForPriority
@@ -26,6 +38,9 @@ const queue = new PriorityQueue({
     maxSize: config.queueMaxSize
 });
 
+/*
+ * Procesamiento de eventos
+ */
 const processor = new EventProcessor({
     ruleEngine,
     queue,
@@ -36,80 +51,81 @@ const processor = new EventProcessor({
 });
 
 /*
- * Handler temporal.
+ * Proveedor de IA.
  *
- * En producción esta responsabilidad será sustituida
- * por un servicio independiente (IA, TTS, etc.).
- *
- * Por ahora solo demuestra que el worker consume
- * correctamente la cola.
+ * Actualmente MOCK.
+ * Más adelante podremos sustituir únicamente esta
+ * implementación por un proveedor real.
  */
-async function mockHandler(queueItem) {
-    const { event, decision } = queueItem;
+const aiProvider = new MockAIProvider({
+    delayMs: config.mockAIDelayMs,
+    mode: 'success'
+});
 
-    console.log(
-        `⚙️ Worker procesando → ${event.type} | ` +
-        `prioridad=${decision.priority}`
-    );
+const aiService = new AIService({
+    provider: aiProvider,
+    timeoutMs: config.aiTimeoutMs
+});
 
-    /*
-     * Simulamos una operación asíncrona externa.
-     * Por ejemplo, una futura llamada a un modelo de IA.
-     */
-    await new Promise(resolve => {
-        setTimeout(resolve, 300);
-    });
-
-    return {
-        type: 'mock_response',
-
-        sourceEvent: {
-            type: event.type,
-            username: event.user?.username ?? null
-        },
-
-        text:
-            event.type === 'comment'
-                ? `Respuesta simulada para: ${event.content}`
-                : `Evento ${event.type} procesado`,
-
-        processedAt: Date.now()
-    };
-}
-
+/*
+ * Worker consumidor de PriorityQueue.
+ *
+ * QueueWorker no conoce el proveedor concreto.
+ * Únicamente delega el procesamiento a AIService.
+ */
 const worker = new QueueWorker({
     processor,
-
-    handler: mockHandler,
 
     pollIntervalMs:
         config.workerPollIntervalMs,
 
+    handler: async queueItem => {
+        const { event, decision } = queueItem;
+
+        console.log(
+            `⚙️ Worker procesando → ${event.type} | ` +
+            `prioridad=${decision.priority}`
+        );
+
+        return aiService.generateResponse({
+            event,
+
+            context: {
+                platform: 'tiktok'
+            }
+        });
+    },
+
     onResult: async (result, queueItem) => {
         console.log(
-            `✅ Worker completó → ${queueItem.event.type}`
+            `✅ IA completó → ${queueItem.event.type}`
         );
 
         console.log(
-            `🤖 MOCK → ${result.text}`
+            `🤖 MOCK AI → ${result.text}`
         );
 
         /*
-         * Todavía NO publicamos esta respuesta al avatar.
+         * Todavía NO enviamos la respuesta de IA
+         * al avatar.
          *
-         * Primero queremos demostrar que el ciclo de
-         * consumo funciona correctamente.
+         * Esa salida tendrá su propio contrato/evento
+         * para no mezclar eventos TikTok con respuestas
+         * generadas por el sistema.
          */
     },
 
     onError: async (error, queueItem) => {
         console.error(
-            `❌ Worker falló → ${queueItem.event.type}:`,
-            error.message
+            `❌ IA falló → ${queueItem.event.type} | ` +
+            `${error.code ?? 'AI_ERROR'}: ${error.message}`
         );
     }
 });
 
+/*
+ * TikTok
+ */
 const tiktok = new TikTokLiveAdapter(
     config.tiktokUsername
 );
@@ -120,11 +136,10 @@ tiktok.onEvent(event => {
     const result = processor.process(event);
 
     /*
-     * Los eventos QUEUE / PRIORITY también pueden tener
-     * representación visual.
+     * VISUAL ya es publicado por EventProcessor.
      *
-     * EventProcessor ya publica los eventos VISUAL mediante
-     * onVisualEvent.
+     * QUEUE / PRIORITY también se muestran en el
+     * overlay mientras esperan procesamiento.
      */
     if (result.queued) {
         gateway.broadcast(event);
@@ -156,8 +171,8 @@ async function start() {
         const session = await tiktok.connect();
 
         /*
-         * El worker arranca únicamente después de confirmar
-         * que la sesión TikTok está conectada.
+         * El worker arranca solamente después
+         * de confirmar la conexión con TikTok.
          */
         worker.start();
 
@@ -173,6 +188,7 @@ async function start() {
         );
 
         console.log('⚙️ QueueWorker iniciado');
+        console.log('🤖 AIService: MockAIProvider');
         console.log('Esperando eventos...\n');
 
     } catch (error) {
@@ -182,12 +198,18 @@ async function start() {
         );
 
         /*
-         * Limpieza parcial si el arranque falla.
+         * Limpieza parcial ante fallo durante startup.
          */
         try {
             await worker.stop();
         } catch {
             // Worker puede no haberse iniciado.
+        }
+
+        try {
+            tiktok.disconnect();
+        } catch {
+            // TikTok puede no haberse conectado.
         }
 
         try {
@@ -218,10 +240,8 @@ async function shutdown() {
         tiktok.disconnect();
 
         /*
-         * Luego esperamos que termine únicamente
-         * el trabajo actualmente en ejecución.
-         *
-         * QueueWorker.stop() no comienza otro trabajo.
+         * Esperamos únicamente el trabajo que ya
+         * se encuentre en ejecución.
          */
         await worker.stop();
 
@@ -233,6 +253,16 @@ async function shutdown() {
         console.log(
             '📊 QueueWorker:',
             worker.getStats()
+        );
+
+        console.log(
+            '📊 AIService:',
+            aiService.getStats()
+        );
+
+        console.log(
+            '📊 AIProvider:',
+            aiProvider.getStats()
         );
 
         await gateway.stop();

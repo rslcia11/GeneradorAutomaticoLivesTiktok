@@ -1,3 +1,47 @@
+/* ============================================================
+   TAROT DE BETO â€” LIVE AVATAR
+   Production Overlay / Vertical 9:16
+   Target: 1080 Ã— 1920
+
+   Capas:
+   1. Escenario
+   2. AtmÃ³sfera
+   3. Aura
+   4. Personaje
+   5. Bola / energÃ­a
+   6. PartÃ­culas
+   7. Reacciones
+   8. UI en tiempo real
+   ============================================================ */
+
+:root {
+    --scene-bg: #07040e;
+
+    --ivory: #fff9ed;
+    --ivory-soft: rgba(255, 249, 237, 0.78);
+
+    --gold: #f4cf82;
+    --gold-bright: #ffe6a8;
+
+    --violet: 151, 100, 255;
+    --blue: 91, 174, 255;
+    --cyan: 118, 229, 255;
+
+    --glass:
+        rgba(10, 6, 22, 0.68);
+
+    --glass-strong:
+        rgba(9, 5, 20, 0.82);
+
+    --glass-border:
+        rgba(255, 238, 202, 0.16);
+}
+
+
+/* ============================================================
+   RESET
+   ============================================================ */
+
 * {
     box-sizing: border-box;
 }
@@ -9,224 +53,1906 @@ body {
     margin: 0;
 }
 
+html {
+    background: var(--scene-bg);
+}
+
 body {
     overflow: hidden;
-    font-family: Arial, Helvetica, sans-serif;
-    background: transparent;
+
+    font-family:
+        Inter,
+        "Segoe UI",
+        Arial,
+        sans-serif;
+
+    background: var(--scene-bg);
+
+    color: var(--ivory);
+
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
 }
+
+
+/* ============================================================
+   ESCENA
+   ============================================================ */
 
 .live-scene {
     position: relative;
+
     width: 100vw;
     height: 100vh;
-    min-height: 600px;
 
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    min-width: 280px;
+    min-height: 500px;
 
-    gap: 24px;
+    overflow: hidden;
+    isolation: isolate;
 
     background:
         radial-gradient(
-            circle at center,
-            rgba(72, 52, 117, 0.92),
-            rgba(18, 14, 32, 0.98)
+            circle at 50% 39%,
+            #3b2453 0%,
+            #1a1028 46%,
+            #07040e 100%
         );
-
-    color: white;
 }
 
-/* Estado WebSocket */
+
+/* ============================================================
+   MASTER COMO ESCENARIO
+   ============================================================ */
+
+.tarot-background {
+    position: absolute;
+    inset: -2%;
+
+    z-index: -10;
+
+    background-image:
+        url("./assets/tarot-master.png");
+
+    background-size: cover;
+    background-position: center center;
+    background-repeat: no-repeat;
+
+    filter:
+        brightness(0.48)
+        saturate(0.78)
+        contrast(1.04)
+        blur(2px);
+
+    transform:
+        scale(1.035);
+
+    animation:
+        background-breathe
+        14s
+        ease-in-out
+        infinite alternate;
+
+    will-change:
+        transform,
+        filter;
+}
+
+@keyframes background-breathe {
+
+    from {
+        transform:
+            scale(1.035)
+            translate3d(0, 0, 0);
+    }
+
+    to {
+        transform:
+            scale(1.055)
+            translate3d(0, -0.35%, 0);
+    }
+}
+
+
+/* ============================================================
+   VIÃ‘ETA / PROFUNDIDAD
+   ============================================================ */
+
+.scene-overlay {
+    position: absolute;
+    inset: 0;
+
+    z-index: -9;
+
+    pointer-events: none;
+
+    background:
+
+        radial-gradient(
+            ellipse at 50% 42%,
+            rgba(40, 18, 63, 0.02) 0%,
+            rgba(10, 5, 20, 0.05) 35%,
+            rgba(5, 2, 12, 0.55) 100%
+        ),
+
+        linear-gradient(
+            to bottom,
+            rgba(4, 2, 10, 0.35) 0%,
+            rgba(4, 2, 10, 0.03) 22%,
+            rgba(4, 2, 10, 0.02) 63%,
+            rgba(4, 2, 10, 0.72) 100%
+        );
+}
+
+
+/* ============================================================
+   ATMÃ“SFERA GENERAL
+   ============================================================ */
+
+.ambient-effects {
+    position: absolute;
+    inset: 0;
+
+    z-index: -2;
+
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.orb {
+    position: absolute;
+
+    width: 5px;
+    height: 5px;
+
+    border-radius: 50%;
+
+    opacity: 0;
+
+    background:
+        rgba(255, 223, 151, 0.95);
+
+    box-shadow:
+        0 0 8px
+            rgba(255, 220, 148, 0.95),
+
+        0 0 22px
+            rgba(var(--violet), 0.6);
+
+    animation:
+        ambient-orb
+        9s
+        linear
+        infinite;
+}
+
+.orb--1 {
+    left: 17%;
+    bottom: 10%;
+
+    animation-delay: -1s;
+}
+
+.orb--2 {
+    left: 77%;
+    bottom: 18%;
+
+    width: 3px;
+    height: 3px;
+
+    animation-delay: -4s;
+    animation-duration: 11s;
+}
+
+.orb--3 {
+    left: 61%;
+    bottom: 7%;
+
+    width: 4px;
+    height: 4px;
+
+    animation-delay: -7s;
+    animation-duration: 10s;
+}
+
+@keyframes ambient-orb {
+
+    0% {
+        opacity: 0;
+
+        transform:
+            translate3d(0, 30px, 0)
+            scale(0.45);
+    }
+
+    14% {
+        opacity: 0.8;
+    }
+
+    68% {
+        opacity: 0.45;
+    }
+
+    100% {
+        opacity: 0;
+
+        transform:
+            translate3d(32px, -360px, 0)
+            scale(1.4);
+    }
+}
+
+
+/* ============================================================
+   CONEXIÃ“N
+   ============================================================ */
 
 .connection-status {
     position: absolute;
-    top: 24px;
-    left: 24px;
 
-    padding: 8px 14px;
+    top:
+        max(
+            18px,
+            env(safe-area-inset-top)
+        );
+
+    left: 18px;
+
+    z-index: 50;
+
+    max-width: 42vw;
+
+    padding:
+        9px 14px;
+
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.11);
 
     border-radius: 999px;
 
-    background: rgba(0, 0, 0, 0.35);
+    background:
+        rgba(7, 4, 15, 0.72);
 
-    font-size: 14px;
-    font-weight: 600;
+    box-shadow:
+        0 8px 30px
+        rgba(0, 0, 0, 0.28);
+
+    backdrop-filter:
+        blur(14px);
+
+    font-size: 13px;
+    font-weight: 700;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-/* Estadísticas */
+
+/* ============================================================
+   ESTADÃSTICAS
+   ============================================================ */
 
 .live-stats {
     position: absolute;
-    top: 24px;
-    right: 24px;
+
+    top:
+        max(
+            18px,
+            env(safe-area-inset-top)
+        );
+
+    right: 18px;
+
+    z-index: 50;
 
     display: flex;
-    gap: 12px;
+    gap: 8px;
 }
 
 .stat {
-    min-width: 90px;
-
-    padding: 10px 14px;
+    min-width: 74px;
 
     display: flex;
     align-items: center;
     justify-content: center;
 
-    gap: 8px;
+    gap: 7px;
 
-    border-radius: 14px;
+    padding:
+        9px 12px;
 
-    background: rgba(0, 0, 0, 0.35);
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.11);
 
-    font-weight: 700;
+    border-radius: 999px;
+
+    background:
+        rgba(7, 4, 15, 0.72);
+
+    box-shadow:
+        0 8px 30px
+        rgba(0, 0, 0, 0.28);
+
+    backdrop-filter:
+        blur(14px);
+
+    font-size: 14px;
+    font-weight: 800;
 }
 
-/* Avatar provisional */
+
+/* ============================================================
+   AVATAR â€” COMPOSICIÃ“N PRINCIPAL
+   ============================================================ */
 
 .avatar-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    position: absolute;
 
-    gap: 14px;
+    /*
+     * El personaje domina aproximadamente
+     * el 70% superior de la escena vertical.
+     */
+    top: 5.5%;
+    left: 50%;
+
+    z-index: 10;
+
+    width:
+        min(
+            104vw,
+            1120px
+        );
+
+    height: 78%;
+
+    transform:
+        translateX(-50%);
+
+    pointer-events: none;
+
+    perspective: 1000px;
+
+    will-change:
+        transform,
+        filter;
 }
 
-.avatar {
-    width: 220px;
-    height: 220px;
+
+/* ============================================================
+   STAGE
+   ============================================================ */
+
+.avatar-stage {
+    position: absolute;
+    inset: 0;
 
     display: flex;
     align-items: center;
     justify-content: center;
+
+    transform-origin:
+        50% 58%;
+
+    transform-style:
+        preserve-3d;
+
+    will-change:
+        transform;
+}
+
+
+/* ============================================================
+   PERSONAJE
+   ============================================================ */
+
+.avatar-image {
+    position: relative;
+
+    z-index: 5;
+
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: contain;
+    object-position: center center;
+
+    user-select: none;
+
+    transform:
+        translate3d(0, 0, 0);
+
+    filter:
+        drop-shadow(
+            0 24px 42px
+            rgba(0, 0, 0, 0.5)
+        )
+        drop-shadow(
+            0 0 18px
+            rgba(var(--violet), 0.08)
+        );
+
+    will-change:
+        transform,
+        filter;
+}
+
+
+/* ============================================================
+   AURA PRINCIPAL
+   ============================================================ */
+
+.avatar-aura {
+    position: absolute;
+
+    z-index: 0;
+
+    top: 15%;
+    left: 50%;
+
+    width: 61%;
+    aspect-ratio: 1;
+
+    border-radius: 50%;
+
+    transform:
+        translateX(-50%);
+
+    opacity: 0.34;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(235, 213, 255, 0.38)
+            0%,
+
+            rgba(var(--violet), 0.28)
+            25%,
+
+            rgba(90, 48, 183, 0.13)
+            50%,
+
+            transparent
+            72%
+        );
+
+    filter:
+        blur(24px);
+
+    mix-blend-mode:
+        screen;
+
+    will-change:
+        opacity,
+        transform,
+        filter;
+}
+
+
+/* ============================================================
+   GLOW BASE DE LA BOLA
+   ============================================================ */
+
+.avatar-glow {
+    position: absolute;
+
+    z-index: 7;
+
+    left: 50%;
+    bottom: 6.5%;
+
+    width: 32%;
+    aspect-ratio: 1;
+
+    border-radius: 50%;
+
+    transform:
+        translateX(-50%)
+        scale(0.9);
+
+    opacity: 0.42;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(255, 255, 255, 0.72)
+            0%,
+
+            rgba(var(--cyan), 0.5)
+            18%,
+
+            rgba(var(--blue), 0.32)
+            37%,
+
+            rgba(var(--violet), 0.22)
+            53%,
+
+            transparent
+            74%
+        );
+
+    filter:
+        blur(15px);
+
+    mix-blend-mode:
+        screen;
+
+    will-change:
+        transform,
+        opacity,
+        filter;
+}
+
+
+/* ============================================================
+   CAMPO MÃGICO
+   ============================================================ */
+
+.magic-field {
+    position: absolute;
+    inset: 0;
+
+    z-index: 9;
+
+    overflow: visible;
+
+    pointer-events: none;
+}
+
+.magic-particle {
+    position: absolute;
+
+    width: 5px;
+    height: 5px;
 
     border-radius: 50%;
 
     background:
+        var(--gold-bright);
+
+    box-shadow:
+        0 0 8px
+            rgba(255, 226, 162, 0.95),
+
+        0 0 18px
+            rgba(var(--violet), 0.72);
+
+    opacity: 0;
+
+    animation:
+        magic-float
+        4.8s
+        ease-in-out
+        infinite;
+}
+
+.magic-particle--1 {
+    left: 35%;
+    top: 37%;
+
+    animation-delay: -0.4s;
+}
+
+.magic-particle--2 {
+    left: 63%;
+    top: 32%;
+
+    width: 3px;
+    height: 3px;
+
+    animation-delay: -1.2s;
+}
+
+.magic-particle--3 {
+    left: 29%;
+    top: 58%;
+
+    width: 4px;
+    height: 4px;
+
+    animation-delay: -2.1s;
+}
+
+.magic-particle--4 {
+    left: 70%;
+    top: 55%;
+
+    animation-delay: -3s;
+}
+
+.magic-particle--5 {
+    left: 41%;
+    top: 70%;
+
+    width: 3px;
+    height: 3px;
+
+    animation-delay: -3.8s;
+}
+
+.magic-particle--6 {
+    left: 59%;
+    top: 68%;
+
+    width: 4px;
+    height: 4px;
+
+    animation-delay: -4.4s;
+}
+
+@keyframes magic-float {
+
+    0%,
+    100% {
+        opacity: 0;
+
+        transform:
+            translate3d(
+                -8px,
+                14px,
+                0
+            )
+            scale(0.5);
+    }
+
+    20% {
+        opacity: 0.85;
+    }
+
+    50% {
+        opacity: 0.55;
+
+        transform:
+            translate3d(
+                8px,
+                -16px,
+                0
+            )
+            scale(1.1);
+    }
+
+    80% {
+        opacity: 0.7;
+    }
+
+    100% {
+        opacity: 0;
+
+        transform:
+            translate3d(
+                18px,
+                -42px,
+                0
+            )
+            scale(0.65);
+    }
+}
+
+
+/* ============================================================
+   ENERGÃA DE LA BOLA
+   ============================================================ */
+
+.crystal-energy {
+    position: absolute;
+
+    z-index: 10;
+
+    left: 50%;
+    bottom: 7%;
+
+    width: 29%;
+    aspect-ratio: 1;
+
+    transform:
+        translateX(-50%);
+
+    pointer-events: none;
+}
+
+.energy-ring {
+    position: absolute;
+
+    top: 50%;
+    left: 50%;
+
+    border:
+        1px solid
+        rgba(184, 224, 255, 0.48);
+
+    border-radius: 50%;
+
+    opacity: 0.3;
+
+    transform:
+        translate(-50%, -50%);
+
+    box-shadow:
+        0 0 12px
+        rgba(var(--blue), 0.2);
+
+    will-change:
+        transform,
+        opacity;
+}
+
+.energy-ring--1 {
+    width: 72%;
+    height: 72%;
+
+    animation:
+        energy-ring-one
+        3.6s
+        linear
+        infinite;
+}
+
+.energy-ring--2 {
+    width: 91%;
+    height: 91%;
+
+    border-color:
+        rgba(207, 174, 255, 0.34);
+
+    animation:
+        energy-ring-two
+        4.8s
+        linear
+        infinite reverse;
+}
+
+.energy-core {
+    position: absolute;
+
+    top: 50%;
+    left: 50%;
+
+    width: 38%;
+    height: 38%;
+
+    border-radius: 50%;
+
+    transform:
+        translate(-50%, -50%);
+
+    opacity: 0.38;
+
+    background:
         radial-gradient(
-            circle at 50% 35%,
-            #ffffff,
-            #d8c8ff 60%,
-            #9276d8
+            circle,
+            rgba(255, 255, 255, 0.78),
+            rgba(var(--cyan), 0.32) 35%,
+            transparent 72%
         );
 
-    box-shadow:
-        0 0 45px rgba(190, 160, 255, 0.45);
+    filter:
+        blur(7px);
 
-    transition:
-        transform 180ms ease,
-        box-shadow 180ms ease;
+    animation:
+        energy-core-pulse
+        2.4s
+        ease-in-out
+        infinite;
 }
 
-.avatar-face {
-    color: #342558;
+@keyframes energy-ring-one {
 
-    font-size: 58px;
-    font-weight: 700;
+    from {
+        transform:
+            translate(-50%, -50%)
+            rotate(0deg)
+            scale(0.92);
+    }
 
-    user-select: none;
+    50% {
+        opacity: 0.55;
+    }
+
+    to {
+        transform:
+            translate(-50%, -50%)
+            rotate(360deg)
+            scale(1.05);
+    }
 }
+
+@keyframes energy-ring-two {
+
+    from {
+        transform:
+            translate(-50%, -50%)
+            rotate(0deg)
+            scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    to {
+        transform:
+            translate(-50%, -50%)
+            rotate(360deg)
+            scale(0.94);
+    }
+}
+
+@keyframes energy-core-pulse {
+
+    0%,
+    100% {
+        opacity: 0.25;
+
+        transform:
+            translate(-50%, -50%)
+            scale(0.85);
+    }
+
+    50% {
+        opacity: 0.62;
+
+        transform:
+            translate(-50%, -50%)
+            scale(1.12);
+    }
+}
+
+
+/* ============================================================
+   ESTADO â€” IDLE
+   ============================================================ */
+
+.avatar--idle .avatar-stage {
+    animation:
+        avatar-idle
+        5.8s
+        ease-in-out
+        infinite;
+}
+
+.avatar--idle .avatar-aura {
+    animation:
+        aura-idle
+        4.7s
+        ease-in-out
+        infinite;
+}
+
+.avatar--idle .avatar-glow {
+    animation:
+        glow-idle
+        3.7s
+        ease-in-out
+        infinite;
+}
+
+@keyframes avatar-idle {
+
+    0%,
+    100% {
+        transform:
+            translate3d(0, 0, 0)
+            scale(1);
+    }
+
+    35% {
+        transform:
+            translate3d(0, -3px, 0)
+            scale(1.002);
+    }
+
+    70% {
+        transform:
+            translate3d(0, -6px, 0)
+            scale(1.004);
+    }
+}
+
+@keyframes aura-idle {
+
+    0%,
+    100% {
+        opacity: 0.26;
+
+        transform:
+            translateX(-50%)
+            scale(0.94);
+    }
+
+    50% {
+        opacity: 0.45;
+
+        transform:
+            translateX(-50%)
+            scale(1.07);
+    }
+}
+
+@keyframes glow-idle {
+
+    0%,
+    100% {
+        opacity: 0.3;
+
+        transform:
+            translateX(-50%)
+            scale(0.88);
+    }
+
+    50% {
+        opacity: 0.56;
+
+        transform:
+            translateX(-50%)
+            scale(1.04);
+    }
+}
+
+
+/* ============================================================
+   ESTADO â€” LISTENING
+   ============================================================ */
+
+.avatar--listening .avatar-stage {
+    animation:
+        avatar-listening
+        1.25s
+        ease-in-out
+        infinite alternate;
+}
+
+.avatar--listening .avatar-aura {
+    opacity: 0.55;
+
+    animation:
+        aura-listening
+        1.2s
+        ease-in-out
+        infinite;
+}
+
+.avatar--listening .avatar-glow {
+    opacity: 0.62;
+
+    animation:
+        glow-listening
+        1.1s
+        ease-in-out
+        infinite;
+}
+
+.avatar--listening .energy-ring {
+    opacity: 0.55;
+}
+
+@keyframes avatar-listening {
+
+    from {
+        transform:
+            translate3d(0, -2px, 0)
+            scale(1.002);
+    }
+
+    to {
+        transform:
+            translate3d(0, -3px, 0)
+            scale(1.005);
+    }
+}
+
+@keyframes aura-listening {
+
+    0%,
+    100% {
+        transform:
+            translateX(-50%)
+            scale(0.98);
+    }
+
+    50% {
+        transform:
+            translateX(-50%)
+            scale(1.12);
+    }
+}
+
+@keyframes glow-listening {
+
+    0%,
+    100% {
+        transform:
+            translateX(-50%)
+            scale(0.92);
+    }
+
+    50% {
+        transform:
+            translateX(-50%)
+            scale(1.1);
+    }
+}
+
+
+/* ============================================================
+   ESTADO â€” THINKING
+   ============================================================ */
+
+.avatar--thinking .avatar-stage {
+    animation:
+        avatar-thinking
+        2.7s
+        ease-in-out
+        infinite;
+}
+
+.avatar--thinking .avatar-aura {
+    opacity: 0.7;
+
+    animation:
+        aura-thinking
+        1.8s
+        ease-in-out
+        infinite;
+}
+
+.avatar--thinking .avatar-glow {
+    opacity: 0.82;
+
+    animation:
+        glow-thinking
+        1.35s
+        ease-in-out
+        infinite;
+}
+
+.avatar--thinking .energy-ring--1 {
+    animation-duration: 1.8s;
+
+    opacity: 0.72;
+}
+
+.avatar--thinking .energy-ring--2 {
+    animation-duration: 2.4s;
+
+    opacity: 0.62;
+}
+
+.avatar--thinking .energy-core {
+    opacity: 0.75;
+
+    animation-duration: 1.1s;
+}
+
+.avatar--thinking .magic-particle {
+    animation-duration: 2.8s;
+}
+
+.avatar--thinking .avatar-image {
+    filter:
+        drop-shadow(
+            0 24px 42px
+            rgba(0, 0, 0, 0.48)
+        )
+        drop-shadow(
+            0 0 20px
+            rgba(var(--violet), 0.2)
+        );
+}
+
+@keyframes avatar-thinking {
+
+    0%,
+    100% {
+        transform:
+            translate3d(0, -2px, 0)
+            scale(1.003);
+    }
+
+    50% {
+        transform:
+            translate3d(0, -5px, 0)
+            scale(1.007);
+    }
+}
+
+@keyframes aura-thinking {
+
+    0%,
+    100% {
+        transform:
+            translateX(-50%)
+            scale(0.94);
+
+        filter:
+            blur(23px);
+    }
+
+    50% {
+        transform:
+            translateX(-50%)
+            scale(1.18);
+
+        filter:
+            blur(31px);
+    }
+}
+
+@keyframes glow-thinking {
+
+    0%,
+    100% {
+        transform:
+            translateX(-50%)
+            scale(0.9);
+    }
+
+    50% {
+        transform:
+            translateX(-50%)
+            scale(1.18);
+    }
+}
+
+
+/* ============================================================
+   ESTADO â€” SPEAKING
+   ============================================================ */
+
+.avatar--speaking .avatar-stage {
+    animation:
+        avatar-speaking
+        0.72s
+        ease-in-out
+        infinite alternate;
+}
+
+.avatar--speaking .avatar-aura {
+    opacity: 0.64;
+
+    animation:
+        aura-speaking
+        1.15s
+        ease-in-out
+        infinite;
+}
+
+.avatar--speaking .avatar-glow {
+    opacity: 0.82;
+
+    animation:
+        glow-speaking
+        0.72s
+        ease-in-out
+        infinite alternate;
+}
+
+.avatar--speaking .energy-core {
+    animation-duration: 0.72s;
+
+    opacity: 0.82;
+}
+
+.avatar--speaking .energy-ring--1 {
+    animation-duration: 2.2s;
+
+    opacity: 0.7;
+}
+
+.avatar--speaking .energy-ring--2 {
+    animation-duration: 3s;
+
+    opacity: 0.58;
+}
+
+.avatar--speaking .magic-particle {
+    animation-duration: 2.2s;
+}
+
+@keyframes avatar-speaking {
+
+    from {
+        transform:
+            translate3d(0, -2px, 0)
+            scale(1.003);
+    }
+
+    to {
+        transform:
+            translate3d(0, -4px, 0)
+            scale(1.008);
+    }
+}
+
+@keyframes aura-speaking {
+
+    0%,
+    100% {
+        transform:
+            translateX(-50%)
+            scale(1);
+    }
+
+    50% {
+        transform:
+            translateX(-50%)
+            scale(1.14);
+    }
+}
+
+@keyframes glow-speaking {
+
+    from {
+        transform:
+            translateX(-50%)
+            scale(0.96);
+
+        filter:
+            blur(14px);
+    }
+
+    to {
+        transform:
+            translateX(-50%)
+            scale(1.15);
+
+        filter:
+            blur(20px);
+    }
+}
+
+
+/* ============================================================
+   ESTADO â€” REACTING
+   ============================================================ */
+
+.avatar--reacting .avatar-stage {
+    animation:
+        avatar-reacting
+        620ms
+        cubic-bezier(
+            0.18,
+            0.89,
+            0.32,
+            1.32
+        )
+        infinite alternate;
+}
+
+.avatar--reacting .avatar-aura {
+    opacity: 0.9;
+
+    animation:
+        aura-reacting
+        680ms
+        ease-in-out
+        infinite alternate;
+}
+
+.avatar--reacting .avatar-glow {
+    opacity: 1;
+
+    animation:
+        glow-reacting
+        480ms
+        ease-in-out
+        infinite alternate;
+}
+
+.avatar--reacting .energy-core {
+    opacity: 1;
+
+    animation-duration: 0.48s;
+}
+
+.avatar--reacting .energy-ring--1 {
+    animation-duration: 1s;
+
+    opacity: 0.9;
+}
+
+.avatar--reacting .energy-ring--2 {
+    animation-duration: 1.35s;
+
+    opacity: 0.82;
+}
+
+.avatar--reacting .magic-particle {
+    animation-duration: 1.3s;
+}
+
+@keyframes avatar-reacting {
+
+    0% {
+        transform:
+            translate3d(0, 0, 0)
+            scale(1);
+    }
+
+    45% {
+        transform:
+            translate3d(0, -7px, 0)
+            scale(1.018);
+    }
+
+    100% {
+        transform:
+            translate3d(0, -2px, 0)
+            scale(1.006);
+    }
+}
+
+@keyframes aura-reacting {
+
+    from {
+        transform:
+            translateX(-50%)
+            scale(1);
+    }
+
+    to {
+        transform:
+            translateX(-50%)
+            scale(1.24);
+    }
+}
+
+@keyframes glow-reacting {
+
+    from {
+        transform:
+            translateX(-50%)
+            scale(1);
+    }
+
+    to {
+        transform:
+            translateX(-50%)
+            scale(1.25);
+    }
+}
+
+
+/* ============================================================
+   DESTELLOS DE REACCIÃ“N
+   ============================================================ */
+
+.reaction-effects {
+    position: absolute;
+    inset: 0;
+
+    z-index: 20;
+
+    pointer-events: none;
+
+    opacity: 0;
+}
+
+.reaction-star {
+    position: absolute;
+
+    color:
+        var(--gold-bright);
+
+    font-size:
+        clamp(
+            16px,
+            3vw,
+            34px
+        );
+
+    text-shadow:
+        0 0 10px
+            rgba(255, 224, 159, 0.9),
+
+        0 0 24px
+            rgba(var(--violet), 0.65);
+}
+
+.reaction-star--1 {
+    left: 25%;
+    top: 30%;
+}
+
+.reaction-star--2 {
+    right: 24%;
+    top: 39%;
+}
+
+.reaction-star--3 {
+    left: 31%;
+    top: 58%;
+}
+
+.reaction-star--4 {
+    right: 29%;
+    top: 63%;
+}
+
+.avatar--reacting
+.reaction-effects {
+    opacity: 1;
+}
+
+.avatar--reacting
+.reaction-star {
+    animation:
+        reaction-star
+        780ms
+        ease-in-out
+        infinite alternate;
+}
+
+.avatar--reacting
+.reaction-star--2 {
+    animation-delay: -180ms;
+}
+
+.avatar--reacting
+.reaction-star--3 {
+    animation-delay: -360ms;
+}
+
+.avatar--reacting
+.reaction-star--4 {
+    animation-delay: -520ms;
+}
+
+@keyframes reaction-star {
+
+    from {
+        opacity: 0.25;
+
+        transform:
+            scale(0.55)
+            rotate(-12deg);
+    }
+
+    to {
+        opacity: 1;
+
+        transform:
+            scale(1.25)
+            rotate(12deg);
+    }
+}
+
+
+/* ============================================================
+   ESTADO DEL AVATAR
+   ============================================================ */
 
 .avatar-status {
-    min-height: 24px;
+    position: absolute;
 
-    font-size: 16px;
+    z-index: 35;
 
-    opacity: 0.85;
-}
+    left: 50%;
+    bottom: 20.5%;
 
-/* Comentarios */
+    transform:
+        translateX(-50%);
 
-.comment-card {
-    width: min(720px, 88vw);
+    max-width: 78%;
 
-    padding: 18px 22px;
+    padding:
+        7px 14px;
 
-    border: 1px solid rgba(255, 255, 255, 0.14);
+    border:
+        1px solid
+        rgba(255, 255, 255, 0.09);
 
-    border-radius: 18px;
+    border-radius: 999px;
 
-    background: rgba(0, 0, 0, 0.38);
+    background:
+        rgba(7, 4, 16, 0.57);
 
-    backdrop-filter: blur(8px);
+    backdrop-filter:
+        blur(12px);
 
     box-shadow:
-        0 12px 35px rgba(0, 0, 0, 0.22);
+        0 8px 26px
+        rgba(0, 0, 0, 0.24);
+
+    color:
+        var(--ivory-soft);
+
+    font-size:
+        clamp(
+            11px,
+            1.5vw,
+            14px
+        );
+
+    font-weight: 650;
+
+    text-align: center;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
+/* ============================================================
+   COMENTARIOS / RESPUESTAS DE IA
+   ============================================================ */
+
+.comment-card {
+    position: absolute;
+
+    z-index: 40;
+
+    left: 50%;
+    bottom: 4.5%;
+
+    transform:
+        translateX(-50%);
+
+    width:
+        min(
+            90%,
+            720px
+        );
+
+    min-height: 90px;
+
+    padding:
+        16px 19px;
+
+    border:
+        1px solid
+        var(--glass-border);
+
+    border-radius: 20px;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(27, 14, 47, 0.82),
+            rgba(8, 5, 18, 0.79)
+        );
+
+    backdrop-filter:
+        blur(18px);
+
+    box-shadow:
+        0 18px 48px
+            rgba(0, 0, 0, 0.4),
+
+        inset
+        0 1px 0
+        rgba(255, 255, 255, 0.055),
+
+        0 0 32px
+        rgba(var(--violet), 0.05);
+
+    overflow: hidden;
+}
+
+.comment-card::before {
+    content: "";
+
+    position: absolute;
+
+    top: 0;
+    left: 8%;
+
+    width: 84%;
+    height: 1px;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 220, 150, 0.4),
+            transparent
+        );
 }
 
 .comment-user {
-    margin-bottom: 8px;
+    position: relative;
 
-    font-size: 16px;
-    font-weight: 700;
+    z-index: 1;
+
+    margin-bottom: 7px;
+
+    color:
+        var(--gold);
+
+    font-size:
+        clamp(
+            13px,
+            1.6vw,
+            16px
+        );
+
+    font-weight: 800;
+
+    overflow-wrap: anywhere;
 }
 
 .comment-content {
-    font-size: 20px;
+    position: relative;
+
+    z-index: 1;
+
+    color:
+        var(--ivory);
+
+    font-size:
+        clamp(
+            15px,
+            2vw,
+            20px
+        );
+
+    font-weight: 500;
+
     line-height: 1.4;
 
     overflow-wrap: anywhere;
 }
 
-/* Notificaciones */
+
+/* ============================================================
+   NOTIFICACIONES
+   ============================================================ */
 
 .event-notification {
     position: absolute;
 
-    bottom: 35px;
+    z-index: 60;
+
+    top: 10%;
     left: 50%;
 
-    min-width: 280px;
-    max-width: 80vw;
+    width: max-content;
+    max-width: 82%;
 
-    padding: 14px 20px;
+    padding:
+        12px 19px;
 
-    transform: translateX(-50%);
+    transform:
+        translate(-50%, -14px)
+        scale(0.95);
 
-    border-radius: 16px;
+    border:
+        1px solid
+        rgba(244, 207, 130, 0.28);
 
-    background: rgba(0, 0, 0, 0.55);
+    border-radius: 17px;
+
+    background:
+        linear-gradient(
+            135deg,
+            rgba(61, 34, 88, 0.92),
+            rgba(15, 8, 28, 0.94)
+        );
+
+    box-shadow:
+        0 15px 40px
+            rgba(0, 0, 0, 0.4),
+
+        0 0 30px
+            rgba(var(--violet), 0.15);
+
+    backdrop-filter:
+        blur(16px);
+
+    color:
+        var(--ivory);
+
+    font-size:
+        clamp(
+            13px,
+            1.7vw,
+            16px
+        );
+
+    font-weight: 800;
 
     text-align: center;
-    font-weight: 700;
 
     opacity: 0;
+
     pointer-events: none;
 }
 
-/* Reacciones provisionales */
-
-.avatar.reacting {
-    transform: scale(1.12);
-
-    box-shadow:
-        0 0 75px rgba(220, 195, 255, 0.9);
-}
-
 .event-notification.visible {
-    animation: notification-in 2.5s ease forwards;
+    animation:
+        notification-show
+        2.5s
+        ease
+        forwards;
 }
 
-@keyframes notification-in {
+@keyframes notification-show {
+
     0% {
         opacity: 0;
-        transform: translate(-50%, 18px);
+
+        transform:
+            translate(-50%, -15px)
+            scale(0.94);
     }
 
     12% {
         opacity: 1;
-        transform: translate(-50%, 0);
+
+        transform:
+            translate(-50%, 0)
+            scale(1);
     }
 
-    80% {
+    78% {
         opacity: 1;
-        transform: translate(-50%, 0);
+
+        transform:
+            translate(-50%, 0)
+            scale(1);
     }
 
     100% {
         opacity: 0;
-        transform: translate(-50%, -10px);
+
+        transform:
+            translate(-50%, -10px)
+            scale(0.98);
+    }
+}
+
+
+/* ============================================================
+   VERTICAL 9:16
+   ============================================================ */
+
+@media (max-aspect-ratio: 10 / 16) {
+
+    .avatar-container {
+        top: 6%;
+
+        width: 112vw;
+        height: 77%;
+    }
+
+    .avatar-status {
+        bottom: 20%;
+    }
+
+    .comment-card {
+        bottom: 4%;
+
+        width: 91%;
+    }
+
+    .event-notification {
+        top: 9%;
+    }
+}
+
+
+/* ============================================================
+   MONITOR HORIZONTAL / DESARROLLO
+
+   Importante:
+   ya NO reducimos el avatar a 48vw.
+   Mantenemos presencia visual aunque probemos desde desktop.
+   ============================================================ */
+
+@media (min-aspect-ratio: 1 / 1) {
+
+    .live-scene {
+        /*
+         * El navegador puede ser horizontal,
+         * pero seguimos componiendo el personaje
+         * como una escena vertical.
+         */
+        --portrait-reference:
+            min(
+                100vh,
+                100vw
+            );
+    }
+
+    .avatar-container {
+        top: 4%;
+
+        width:
+            min(
+                74vw,
+                900px
+            );
+
+        height: 79%;
+    }
+
+    .avatar-status {
+        bottom: 18.5%;
+    }
+
+    .comment-card {
+        bottom: 3%;
+
+        width:
+            min(
+                64vw,
+                720px
+            );
+    }
+
+    .event-notification {
+        top: 8%;
+    }
+}
+
+
+/* ============================================================
+   PANTALLAS PEQUEÃ‘AS
+   ============================================================ */
+
+@media (max-width: 520px) {
+
+    .connection-status {
+        top: 12px;
+        left: 12px;
+
+        padding:
+            7px 10px;
+
+        font-size: 11px;
+    }
+
+    .live-stats {
+        top: 12px;
+        right: 12px;
+
+        gap: 5px;
+    }
+
+    .stat {
+        min-width: 56px;
+
+        padding:
+            7px 9px;
+
+        font-size: 12px;
+    }
+
+    .avatar-container {
+        width: 116vw;
+    }
+
+    .comment-card {
+        min-height: 82px;
+
+        padding:
+            14px 16px;
+
+        border-radius: 17px;
+    }
+}
+
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration:
+            0.001ms !important;
+
+        animation-iteration-count:
+            1 !important;
+
+        scroll-behavior:
+            auto !important;
     }
 }

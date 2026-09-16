@@ -2,76 +2,316 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>TikTok Live Avatar</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-    <link rel="stylesheet" href="./styles.css">
+    <meta
+        name="theme-color"
+        content="#090611"
+    >
+
+    <title>Tarot de Beto — Live Avatar</title>
+
+    <link
+        rel="stylesheet"
+        href="./styles.css"
+    >
 </head>
 
 <body>
 
-    <main id="live-scene" class="live-scene">
+    <main
+        id="live-scene"
+        class="live-scene"
+    >
 
-        <!-- Estado de conexión -->
-        <div id="connection-status" class="connection-status">
+        <!-- =====================================================
+             ESCENARIO
+             ===================================================== -->
+
+        <div
+            class="tarot-background"
+            aria-hidden="true"
+        ></div>
+
+        <div
+            class="scene-overlay"
+            aria-hidden="true"
+        ></div>
+
+
+        <!-- =====================================================
+             ATMÓSFERA / PARTÍCULAS
+             ===================================================== -->
+
+        <div
+            class="ambient-effects"
+            aria-hidden="true"
+        >
+            <span class="orb orb--1"></span>
+            <span class="orb orb--2"></span>
+            <span class="orb orb--3"></span>
+        </div>
+
+
+        <!-- =====================================================
+             ESTADO DE CONEXIÓN
+             ===================================================== -->
+
+        <div
+            id="connection-status"
+            class="connection-status"
+            role="status"
+            aria-live="polite"
+        >
             Conectando...
         </div>
 
-        <!-- Información del LIVE -->
-        <section class="live-stats">
 
-            <div class="stat">
-                <span>❤️</span>
-                <span id="like-count">0</span>
+        <!-- =====================================================
+             ESTADÍSTICAS DEL LIVE
+             ===================================================== -->
+
+        <section
+            class="live-stats"
+            aria-label="Estadísticas del LIVE"
+        >
+
+            <div
+                class="stat"
+                title="Me gusta"
+            >
+                <span aria-hidden="true">
+                    &#10084;&#65039;
+                </span>
+
+                <span id="like-count">
+                    0
+                </span>
             </div>
 
-            <div class="stat">
-                <span>👥</span>
-                <span id="viewer-count">0</span>
+            <div
+                class="stat"
+                title="Espectadores"
+            >
+                <span aria-hidden="true">
+                    &#128101;
+                </span>
+
+                <span id="viewer-count">
+                    0
+                </span>
             </div>
 
         </section>
 
-        <!-- Avatar provisional -->
-        <section class="avatar-container">
 
-            <div id="avatar" class="avatar">
-                <div class="avatar-face">
-                    <span id="avatar-expression">●‿●</span>
+        <!-- =====================================================
+             AVATAR PRINCIPAL
+             ===================================================== -->
+
+        <section
+            id="avatar"
+            class="avatar-container avatar--idle"
+            data-avatar-state="idle"
+            aria-label="Avatar del Tarot de Beto"
+        >
+
+            <!--
+                Aura posterior.
+
+                Es independiente del personaje para poder
+                animarla según el estado del avatar.
+            -->
+            <div
+                class="avatar-aura"
+                aria-hidden="true"
+            ></div>
+
+
+            <!--
+                Escenario local del personaje.
+
+                Todo lo que deba moverse junto al personaje
+                debe vivir dentro de avatar-stage.
+            -->
+            <div class="avatar-stage">
+
+
+                <!-- =================================================
+                     CAPA DEL PERSONAJE
+                     ================================================= -->
+
+                <img
+                    id="avatar-image"
+                    class="avatar-image"
+                    src="./assets/tarot-character.png"
+                    alt="Avatar del Tarot de Beto"
+                    draggable="false"
+                    decoding="async"
+                >
+
+
+                <!-- =================================================
+                     ENERGÍA DE LA BOLA DE CRISTAL
+                     ================================================= -->
+
+                <div
+                    class="avatar-glow"
+                    aria-hidden="true"
+                ></div>
+
+
+                <!-- =================================================
+                     CAPAS MÁGICAS FRONTALES
+
+                     Estas capas son CSS/HTML.
+                     No contienen comentarios ni información estática.
+                     Se animarán independientemente del PNG.
+                     ================================================= -->
+
+                <div
+                    class="magic-field"
+                    aria-hidden="true"
+                >
+
+                    <span
+                        class="magic-particle magic-particle--1"
+                    ></span>
+
+                    <span
+                        class="magic-particle magic-particle--2"
+                    ></span>
+
+                    <span
+                        class="magic-particle magic-particle--3"
+                    ></span>
+
+                    <span
+                        class="magic-particle magic-particle--4"
+                    ></span>
+
+                    <span
+                        class="magic-particle magic-particle--5"
+                    ></span>
+
+                    <span
+                        class="magic-particle magic-particle--6"
+                    ></span>
+
                 </div>
+
+
+                <!-- =================================================
+                     ANILLOS DE ENERGÍA
+
+                     Posteriormente reaccionarán con más intensidad
+                     durante thinking / speaking / gifts.
+                     ================================================= -->
+
+                <div
+                    class="crystal-energy"
+                    aria-hidden="true"
+                >
+                    <span class="energy-ring energy-ring--1"></span>
+                    <span class="energy-ring energy-ring--2"></span>
+                    <span class="energy-core"></span>
+                </div>
+
+
             </div>
 
-            <div id="avatar-status" class="avatar-status">
-                Esperando interacción...
+
+            <!-- =====================================================
+                 DESTELLOS DE REACCIÓN
+                 ===================================================== -->
+
+            <div
+                class="reaction-effects"
+                aria-hidden="true"
+            >
+                <span class="reaction-star reaction-star--1">✦</span>
+                <span class="reaction-star reaction-star--2">✧</span>
+                <span class="reaction-star reaction-star--3">✦</span>
+                <span class="reaction-star reaction-star--4">✧</span>
             </div>
 
         </section>
 
-        <!-- Comentario actual -->
-        <section id="comment-card" class="comment-card">
 
-            <div id="comment-user" class="comment-user">
+        <!-- =====================================================
+             ESTADO INTERNO DEL AVATAR
+             ===================================================== -->
+
+        <div
+            id="avatar-status"
+            class="avatar-status"
+            aria-live="polite"
+        >
+            Esperando interacción...
+        </div>
+
+
+        <!-- =====================================================
+             COMENTARIO / RESPUESTA IA
+
+             Este contenido NO forma parte de la imagen.
+             overlay.js lo actualiza en tiempo real mediante
+             los eventos recibidos por WebSocket.
+             ===================================================== -->
+
+        <section
+            id="comment-card"
+            class="comment-card"
+            aria-live="polite"
+            aria-atomic="true"
+        >
+
+            <div
+                id="comment-user"
+                class="comment-user"
+            >
                 Esperando comentario...
             </div>
 
-            <div id="comment-content" class="comment-content">
+            <div
+                id="comment-content"
+                class="comment-content"
+            >
                 Los comentarios del LIVE aparecerán aquí.
             </div>
 
         </section>
 
-        <!-- Notificación de eventos -->
+
+        <!-- =====================================================
+             NOTIFICACIONES
+
+             Gifts, follows, shares, subscriptions, etc.
+             ===================================================== -->
+
         <section
             id="event-notification"
             class="event-notification"
             aria-live="polite"
-        >
-        </section>
+            aria-atomic="true"
+        ></section>
+
 
     </main>
 
-    <script type="module" src="./overlay.js"></script>
+
+    <!-- =========================================================
+         CONTROL DEL OVERLAY
+         ========================================================= -->
+
+    <script
+        type="module"
+        src="./overlay.js"
+    ></script>
 
 </body>
 </html>

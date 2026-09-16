@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { TikTokLiveAdapter } from './tiktok/TikTokLiveAdapter.js';
 import { RealtimeGateway } from './realtime/RealtimeGateway.js';
 import { EventProcessor } from './events/EventProcessor.js';
@@ -24,12 +26,11 @@ const config = {
     }
 };
 
-/*
- * Configuración sensible.
- *
- * GEMINI_API_KEY debe cargarse desde el entorno:
- * node --env-file=.env .\src\app.js
- */
+
+/* ============================================================
+   CONFIGURACIÓN
+   ============================================================ */
+
 const geminiApiKey =
     process.env.GEMINI_API_KEY?.trim();
 
@@ -45,16 +46,20 @@ if (!geminiApiKey) {
     process.exit(1);
 }
 
-/*
- * Realtime / Overlay
- */
+
+/* ============================================================
+   REALTIME / OVERLAY
+   ============================================================ */
+
 const gateway = new RealtimeGateway({
     port: config.websocketPort
 });
 
-/*
- * Reglas y cola
- */
+
+/* ============================================================
+   REGLAS Y COLA
+   ============================================================ */
+
 const ruleEngine = new EventRuleEngine({
     minGiftDiamondsForPriority:
         config.minGiftDiamondsForPriority
@@ -64,9 +69,11 @@ const queue = new PriorityQueue({
     maxSize: config.queueMaxSize
 });
 
-/*
- * Procesamiento de eventos
- */
+
+/* ============================================================
+   EVENT PROCESSOR
+   ============================================================ */
+
 const processor = new EventProcessor({
     ruleEngine,
     queue,
@@ -76,16 +83,11 @@ const processor = new EventProcessor({
     }
 });
 
-/*
- * Proveedores Gemini.
- *
- * El modelo Flash-Lite es el principal para priorizar
- * baja latencia en el LIVE.
- *
- * El segundo modelo se utiliza únicamente cuando el
- * principal falla por condiciones transitorias admitidas
- * por ResilientAIProvider.
- */
+
+/* ============================================================
+   GEMINI PROVIDERS
+   ============================================================ */
+
 const primaryAIProvider =
     new GeminiProvider({
         apiKey: geminiApiKey,
@@ -100,17 +102,11 @@ const fallbackAIProvider =
         timeoutMs: config.aiTimeoutMs
     });
 
-/*
- * Política de resiliencia.
- *
- * Ejemplos:
- * 429 / 5xx / timeout
- *      ↓
- * siguiente provider
- *
- * Errores de configuración como 401/403/404
- * no se ocultan mediante fallback.
- */
+
+/* ============================================================
+   RESILIENT AI PROVIDER
+   ============================================================ */
+
 const aiProvider =
     new ResilientAIProvider({
         providers: [
@@ -119,41 +115,131 @@ const aiProvider =
         ]
     });
 
-/*
- * AIService permanece desacoplado del proveedor concreto.
- */
+
+/* ============================================================
+   AI SERVICE
+   ============================================================ */
+
 const aiService = new AIService({
     provider: aiProvider,
 
     /*
-     * Debe ser mayor que el timeout individual de un
-     * provider para permitir que el fallback tenga
-     * oportunidad de ejecutarse.
-     *
-     * Dos providers × 15 s + margen.
+     * Permite que el proveedor principal y el fallback
+     * tengan oportunidad de ejecutarse.
      */
     timeoutMs:
         (config.aiTimeoutMs * 2) + 5000
 });
 
-/*
- * Worker consumidor de PriorityQueue.
- *
- * QueueWorker no conoce Gemini ni la estrategia
- * de fallback. Únicamente delega a AIService.
- */
+
+/* ============================================================
+   EVENTOS INTERNOS DE IA
+   ============================================================ */
+
+function createAIEvent(
+    type,
+    queueItem,
+    extra = {}
+) {
+
+    const sourceEvent =
+        queueItem.event;
+
+    return {
+        platform: 'system',
+        type,
+        timestamp: Date.now(),
+
+        /*
+         * Mismo ID en ai_processing, ai_response y ai_error.
+         * El overlay lo usa para asociar cada resultado
+         * con su interacción.
+         */
+        interactionId:
+            queueItem.interactionId,
+
+        source: {
+            platform:
+                sourceEvent?.platform ??
+                'tiktok',
+
+            type:
+                sourceEvent?.type ??
+                null,
+
+            timestamp:
+                sourceEvent?.timestamp ??
+                null,
+
+            /*
+             * Permite mostrar el comentario que se está
+             * respondiendo, no el último que llegó.
+             */
+            content:
+                typeof sourceEvent?.content === 'string'
+                    ? sourceEvent.content
+                    : null
+        },
+
+        user: {
+            id:
+                sourceEvent?.user?.id ??
+                null,
+
+            username:
+                sourceEvent?.user?.username ??
+                null,
+
+            nickname:
+                sourceEvent?.user?.nickname ??
+                null
+        },
+
+        ...extra
+    };
+}
+
+
+/* ============================================================
+   QUEUE WORKER
+   ============================================================ */
+
 const worker = new QueueWorker({
     processor,
 
     pollIntervalMs:
         config.workerPollIntervalMs,
 
+    /*
+     * Se ejecuta cuando el worker realmente comienza
+     * a procesar un elemento de la cola.
+     *
+     * Este es el momento correcto para informar al
+     * overlay que Gemini está pensando.
+     */
     handler: async queueItem => {
-        const { event, decision } = queueItem;
+
+        const {
+            event,
+            decision
+        } = queueItem;
 
         console.log(
             `⚙️ Worker procesando → ${event.type} | ` +
             `prioridad=${decision.priority}`
+        );
+
+        queueItem.interactionId =
+            randomUUID();
+
+        const processingEvent =
+            createAIEvent(
+                'ai_processing',
+                queueItem
+            );
+
+        gateway.broadcast(
+            processingEvent
         );
 
         return aiService.generateResponse({
@@ -165,9 +251,20 @@ const worker = new QueueWorker({
         });
     },
 
-    onResult: async (result, queueItem) => {
+
+    /*
+     * Gemini terminó correctamente.
+     */
+    onResult: async (
+        result,
+        queueItem
+    ) => {
+
+        const sourceEvent =
+            queueItem.event;
+
         console.log(
-            `✅ IA completó → ${queueItem.event.type}`
+            `✅ IA completó → ${sourceEvent.type}`
         );
 
         console.log(
@@ -177,42 +274,110 @@ const worker = new QueueWorker({
         const resilience =
             result.metadata?.resilience;
 
-        if (resilience?.fallbackUsed) {
+        if (
+            resilience?.fallbackUsed
+        ) {
             console.warn(
                 `⚠️ IA respondió mediante fallback | ` +
                 `providerIndex=${resilience.providerIndex}`
             );
         }
 
-        /*
-         * Todavía NO enviamos la respuesta de IA
-         * al avatar.
-         *
-         * Esa salida tendrá su propio contrato/evento
-         * para no mezclar eventos TikTok con respuestas
-         * generadas por el sistema.
-         */
+        const aiResponseEvent =
+            createAIEvent(
+                'ai_response',
+                queueItem,
+                {
+                    text:
+                        result.text,
+
+                    ai: {
+                        provider:
+                            result.metadata?.provider ??
+                            null,
+
+                        model:
+                            result.metadata?.model ??
+                            null,
+
+                        fallbackUsed:
+                            resilience?.fallbackUsed ??
+                            false,
+
+                        providerIndex:
+                            resilience?.providerIndex ??
+                            0
+                    }
+                }
+            );
+
+        gateway.broadcast(
+            aiResponseEvent
+        );
     },
 
-    onError: async (error, queueItem) => {
+
+    /*
+     * Gemini falló.
+     *
+     * Además del log del backend, notificamos al
+     * overlay para evitar que el avatar permanezca
+     * indefinidamente en THINKING.
+     */
+    onError: async (
+        error,
+        queueItem
+    ) => {
+
+        const sourceEvent =
+            queueItem.event;
+
         console.error(
-            `❌ IA falló → ${queueItem.event.type} | ` +
+            `❌ IA falló → ${sourceEvent.type} | ` +
             `${error.code ?? 'AI_ERROR'}: ${error.message}`
+        );
+
+        const aiErrorEvent =
+            createAIEvent(
+                'ai_error',
+                queueItem,
+                {
+                    error: {
+                        code:
+                            error.code ??
+                            'AI_ERROR',
+
+                        message:
+                            error.message ??
+                            'Error desconocido'
+                    }
+                }
+            );
+
+        gateway.broadcast(
+            aiErrorEvent
         );
     }
 });
 
-/*
- * TikTok
- */
-const tiktok = new TikTokLiveAdapter(
-    config.tiktokUsername
-);
+
+/* ============================================================
+   TIKTOK
+   ============================================================ */
+
+const tiktok =
+    new TikTokLiveAdapter(
+        config.tiktokUsername
+    );
 
 tiktok.onEvent(event => {
-    console.log(`📥 TikTok → ${event.type}`);
 
-    const result = processor.process(event);
+    console.log(
+        `📥 TikTok → ${event.type}`
+    );
+
+    const result =
+        processor.process(event);
 
     /*
      * VISUAL ya es publicado por EventProcessor.
@@ -221,6 +386,7 @@ tiktok.onEvent(event => {
      * overlay mientras esperan procesamiento.
      */
     if (result.queued) {
+
         gateway.broadcast(event);
 
         console.log(
@@ -237,9 +403,18 @@ tiktok.onEvent(event => {
     }
 });
 
+
+/* ============================================================
+   START
+   ============================================================ */
+
 async function start() {
+
     try {
-        console.log('🚀 Iniciando aplicación...');
+
+        console.log(
+            '🚀 Iniciando aplicación...'
+        );
 
         gateway.start();
 
@@ -251,13 +426,18 @@ async function start() {
             await tiktok.connect();
 
         /*
-         * El worker arranca solamente después
+         * El worker comienza únicamente después
          * de confirmar la conexión con TikTok.
          */
         worker.start();
 
-        console.log('✅ TikTok conectado');
-        console.log(`Room ID: ${session.roomId}`);
+        console.log(
+            '✅ TikTok conectado'
+        );
+
+        console.log(
+            `Room ID: ${session.roomId}`
+        );
 
         console.log(
             `📡 WebSocket: ws://localhost:${config.websocketPort}`
@@ -267,7 +447,9 @@ async function start() {
             `📦 Capacidad de cola: ${config.queueMaxSize}`
         );
 
-        console.log('⚙️ QueueWorker iniciado');
+        console.log(
+            '⚙️ QueueWorker iniciado'
+        );
 
         console.log(
             `🤖 IA principal: ${config.aiModels.primary}`
@@ -277,21 +459,21 @@ async function start() {
             `🛟 IA fallback: ${config.aiModels.fallback}`
         );
 
-        console.log('Esperando eventos...\n');
+        console.log(
+            'Esperando eventos...\n'
+        );
 
     } catch (error) {
+
         console.error(
             '❌ Error iniciando aplicación:',
             error
         );
 
-        /*
-         * Limpieza parcial ante fallo durante startup.
-         */
         try {
             await worker.stop();
         } catch {
-            // Worker puede no haberse iniciado.
+            // El worker puede no haberse iniciado.
         }
 
         try {
@@ -303,25 +485,34 @@ async function start() {
         try {
             await gateway.stop();
         } catch {
-            // Gateway puede no haberse iniciado completamente.
+            // Gateway puede no haberse iniciado.
         }
 
         process.exit(1);
     }
 }
 
+
+/* ============================================================
+   SHUTDOWN
+   ============================================================ */
+
 let shuttingDown = false;
 
 async function shutdown() {
+
     if (shuttingDown) {
         return;
     }
 
     shuttingDown = true;
 
-    console.log('\n🛑 Cerrando aplicación...');
+    console.log(
+        '\n🛑 Cerrando aplicación...'
+    );
 
     try {
+
         /*
          * Primero dejamos de recibir eventos nuevos.
          */
@@ -370,6 +561,7 @@ async function shutdown() {
         );
 
     } catch (error) {
+
         console.error(
             '❌ Error durante el cierre:',
             error.message
@@ -379,7 +571,19 @@ async function shutdown() {
     process.exit(0);
 }
 
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+
+/* ============================================================
+   SIGNALS
+   ============================================================ */
+
+process.on(
+    'SIGINT',
+    shutdown
+);
+
+process.on(
+    'SIGTERM',
+    shutdown
+);
 
 await start();

@@ -5,10 +5,11 @@ import { EventRuleEngine } from './rules/EventRuleEngine.js';
 import { PriorityQueue } from './rules/PriorityQueue.js';
 import { QueueWorker } from './workers/QueueWorker.js';
 import { AIService } from './ai/AIService.js';
-import { MockAIProvider } from './ai/MockAIProvider.js';
+import { GeminiProvider } from './ai/GeminiProvider.js';
+import { ResilientAIProvider } from './ai/ResilientAIProvider.js';
 
 const config = {
-    tiktokUsername: 'maulanimations',
+    tiktokUsername: 'tarotdebeto.co',
     websocketPort: 8080,
 
     queueMaxSize: 100,
@@ -16,8 +17,33 @@ const config = {
     workerPollIntervalMs: 100,
 
     aiTimeoutMs: 15000,
-    mockAIDelayMs: 300
+
+    aiModels: {
+        primary: 'gemini-3.5-flash-lite',
+        fallback: 'gemini-3.6-flash'
+    }
 };
+
+/*
+ * Configuración sensible.
+ *
+ * GEMINI_API_KEY debe cargarse desde el entorno:
+ * node --env-file=.env .\src\app.js
+ */
+const geminiApiKey =
+    process.env.GEMINI_API_KEY?.trim();
+
+if (!geminiApiKey) {
+    console.error(
+        '❌ GEMINI_API_KEY no está configurada.'
+    );
+
+    console.error(
+        'Ejecuta la aplicación con --env-file=.env'
+    );
+
+    process.exit(1);
+}
 
 /*
  * Realtime / Overlay
@@ -51,27 +77,70 @@ const processor = new EventProcessor({
 });
 
 /*
- * Proveedor de IA.
+ * Proveedores Gemini.
  *
- * Actualmente MOCK.
- * Más adelante podremos sustituir únicamente esta
- * implementación por un proveedor real.
+ * El modelo Flash-Lite es el principal para priorizar
+ * baja latencia en el LIVE.
+ *
+ * El segundo modelo se utiliza únicamente cuando el
+ * principal falla por condiciones transitorias admitidas
+ * por ResilientAIProvider.
  */
-const aiProvider = new MockAIProvider({
-    delayMs: config.mockAIDelayMs,
-    mode: 'success'
-});
+const primaryAIProvider =
+    new GeminiProvider({
+        apiKey: geminiApiKey,
+        model: config.aiModels.primary,
+        timeoutMs: config.aiTimeoutMs
+    });
 
+const fallbackAIProvider =
+    new GeminiProvider({
+        apiKey: geminiApiKey,
+        model: config.aiModels.fallback,
+        timeoutMs: config.aiTimeoutMs
+    });
+
+/*
+ * Política de resiliencia.
+ *
+ * Ejemplos:
+ * 429 / 5xx / timeout
+ *      ↓
+ * siguiente provider
+ *
+ * Errores de configuración como 401/403/404
+ * no se ocultan mediante fallback.
+ */
+const aiProvider =
+    new ResilientAIProvider({
+        providers: [
+            primaryAIProvider,
+            fallbackAIProvider
+        ]
+    });
+
+/*
+ * AIService permanece desacoplado del proveedor concreto.
+ */
 const aiService = new AIService({
     provider: aiProvider,
-    timeoutMs: config.aiTimeoutMs
+
+    /*
+     * Debe ser mayor que el timeout individual de un
+     * provider para permitir que el fallback tenga
+     * oportunidad de ejecutarse.
+     *
+     * Dos providers × 15 s + margen.
+     */
+    timeoutMs:
+        (config.aiTimeoutMs * 2) + 5000
 });
 
 /*
  * Worker consumidor de PriorityQueue.
  *
- * QueueWorker no conoce el proveedor concreto.
- * Únicamente delega el procesamiento a AIService.
+ * QueueWorker no conoce Gemini ni la estrategia
+ * de fallback. Únicamente delega a AIService.
  */
 const worker = new QueueWorker({
     processor,
@@ -102,8 +171,18 @@ const worker = new QueueWorker({
         );
 
         console.log(
-            `🤖 MOCK AI → ${result.text}`
+            `🤖 IA → ${result.text}`
         );
+
+        const resilience =
+            result.metadata?.resilience;
+
+        if (resilience?.fallbackUsed) {
+            console.warn(
+                `⚠️ IA respondió mediante fallback | ` +
+                `providerIndex=${resilience.providerIndex}`
+            );
+        }
 
         /*
          * Todavía NO enviamos la respuesta de IA
@@ -168,7 +247,8 @@ async function start() {
             `🔌 Conectando con @${config.tiktokUsername}...`
         );
 
-        const session = await tiktok.connect();
+        const session =
+            await tiktok.connect();
 
         /*
          * El worker arranca solamente después
@@ -188,7 +268,15 @@ async function start() {
         );
 
         console.log('⚙️ QueueWorker iniciado');
-        console.log('🤖 AIService: MockAIProvider');
+
+        console.log(
+            `🤖 IA principal: ${config.aiModels.primary}`
+        );
+
+        console.log(
+            `🛟 IA fallback: ${config.aiModels.fallback}`
+        );
+
         console.log('Esperando eventos...\n');
 
     } catch (error) {
@@ -261,8 +349,18 @@ async function shutdown() {
         );
 
         console.log(
-            '📊 AIProvider:',
+            '📊 ResilientAIProvider:',
             aiProvider.getStats()
+        );
+
+        console.log(
+            `📊 Gemini ${config.aiModels.primary}:`,
+            primaryAIProvider.getStats()
+        );
+
+        console.log(
+            `📊 Gemini ${config.aiModels.fallback}:`,
+            fallbackAIProvider.getStats()
         );
 
         await gateway.stop();

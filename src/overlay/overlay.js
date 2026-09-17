@@ -1,5 +1,6 @@
 import { TarotAvatar } from './TarotAvatar.js';
 import { InteractionPresenter } from './InteractionPresenter.js';
+import { startDebugTools } from './debugTools.js';
 
 const WS_URL = 'ws://localhost:8080';
 
@@ -56,6 +57,18 @@ const presenter = new InteractionPresenter({
         avatar.idle();
     }
 });
+
+/*
+ * ?avatar=animado  → renderer WebGL (PixiJS)
+ * ?debug=1         → métricas de rendimiento + teclas de prueba
+ * ?debug=anchors   → además dibuja las zonas del rig
+ * ?fps=30          → limita los FPS del avatar animado
+ * ?preview=estado  → ver debugTools.js
+ */
+const overlayParams =
+    new URLSearchParams(window.location.search);
+
+let animatedAvatar = null;
 
 let socket = null;
 
@@ -468,7 +481,9 @@ function showResponse(event) {
      * Cuando integremos TTS, el fin del audio
      * deberá marcar el fin de la interacción.
      */
-    avatar.startSpeaking();
+    avatar.startSpeaking({
+        intent: event.intent ?? null
+    });
 
     console.log(
         'Respuesta IA recibida:',
@@ -519,10 +534,13 @@ function showFailure(event) {
 
 /*
  * Regalos, follows, shares y suscripciones siempre
- * muestran su notificación, pero no interrumpen al
- * avatar mientras presenta una interacción de IA.
+ * celebran (efecto visual superpuesto), pero solo
+ * cambian el estado del avatar si no está presentando
+ * una interacción de IA, para no cortar la respuesta.
  */
-function reactIfFree(options) {
+function reactToAudience(kind, options) {
+
+    avatar.celebrate(kind);
 
     if (presenter.isBusy) {
         return;
@@ -570,7 +588,7 @@ function handleGift(event) {
         `🎁 ${username} envió ${giftName} ×${quantity}`
     );
 
-    reactIfFree({
+    reactToAudience('gift', {
         status:
             `¡Gracias por el regalo, ${username}!`,
         durationMs: 2200
@@ -611,7 +629,7 @@ function handleFollow(event) {
         `➕ ${username} empezó a seguir`
     );
 
-    reactIfFree({
+    reactToAudience('follow', {
         status:
             `¡Bienvenido, ${username}!`,
         durationMs: 1700
@@ -632,7 +650,7 @@ function handleShare(event) {
         `🔄 ${username} compartió el LIVE`
     );
 
-    reactIfFree({
+    reactToAudience('share', {
         status:
             `¡Gracias por compartir, ${username}!`,
         durationMs: 1500
@@ -673,7 +691,7 @@ function handleSubscription(event) {
         `⭐ ${username} se suscribió`
     );
 
-    reactIfFree({
+    reactToAudience('subscription', {
         status:
             `¡Gracias por suscribirte, ${username}!`,
         durationMs: 2600
@@ -837,6 +855,9 @@ function shutdownOverlay() {
 
     presenter.reset();
 
+    animatedAvatar?.destroy();
+    animatedAvatar = null;
+
     avatar.destroy();
 
     if (
@@ -859,7 +880,61 @@ window.addEventListener(
 
 
 /* ============================================================
+   AVATAR ANIMADO (PixiJS)
+   ============================================================ */
+
+async function startAnimatedAvatar() {
+
+    try {
+        /*
+         * Import dinámico: en modo CSS no se descarga PixiJS.
+         */
+        const { AnimatedAvatar } =
+            await import('./animated/AnimatedAvatar.js');
+
+        animatedAvatar = await AnimatedAvatar.create({
+            root: elements.avatar,
+            imageUrl: elements.avatarImage.src,
+            initialState: avatar.state,
+            initialIntent: avatar.intent,
+            maxFPS: Number(overlayParams.get('fps')) || 60,
+            debug: overlayParams.get('debug')
+        });
+
+        console.log('Avatar animado activo');
+
+        /* Acceso desde DevTools para ajustar el rig en vivo. */
+        if (overlayParams.has('debug')) {
+            window.animatedAvatar = animatedAvatar;
+        }
+
+    } catch (error) {
+        console.error(
+            'Avatar animado no disponible; se mantiene el avatar CSS:',
+            error
+        );
+    }
+}
+
+
+/* ============================================================
    START
    ============================================================ */
 
 connect();
+
+/*
+ * El avatar animado carga en paralelo: la conexión al LIVE
+ * no espera a PixiJS. Hasta que esté listo se ve el avatar CSS.
+ */
+const animatedAvatarReady =
+    overlayParams.get('avatar') === 'animado'
+        ? startAnimatedAvatar()
+        : Promise.resolve();
+
+void animatedAvatarReady.then(() => {
+    startDebugTools({
+        avatar,
+        params: overlayParams
+    });
+});

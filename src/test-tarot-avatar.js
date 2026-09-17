@@ -166,6 +166,38 @@ await test('destroy() cancela timers y bloquea cambios', async avatar => {
 });
 
 
+// 9b. celebrate no cambia el estado
+await test('celebrate() emite evento sin cambiar el estado', async avatar => {
+    const events = [];
+
+    avatar.root.dispatchEvent = event => {
+        events.push(event);
+        return true;
+    };
+
+    avatar.startSpeaking();
+    avatar.celebrate('follow');
+
+    assert.equal(avatar.state, STATES.SPEAKING);
+
+    const celebration = events.find(event => event.type === 'avatarcelebrate');
+
+    assert.equal(celebration?.detail.kind, 'follow');
+});
+
+
+// Intención actual (el renderer animado la lee al crearse)
+await test('Guarda la intención al hablar y la limpia al cambiar de estado', async avatar => {
+    assert.equal(avatar.intent, null);
+
+    avatar.startSpeaking({ intent: 'tarot_reading' });
+    assert.equal(avatar.intent, 'tarot_reading');
+
+    avatar.idle();
+    assert.equal(avatar.intent, null);
+});
+
+
 // 10. Estado inválido
 await test('Estado inválido lanza error', async avatar => {
     assert.throws(

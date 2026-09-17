@@ -49,6 +49,7 @@ export class TarotAvatar {
         this.statusElement = statusElement;
 
         this.state = null;
+        this.intent = null;
 
         this.reactionTimer = null;
         this.speakingTimer = null;
@@ -78,7 +79,8 @@ export class TarotAvatar {
     setState(
         state,
         {
-            status = null
+            status = null,
+            intent = null
         } = {}
     ) {
 
@@ -117,6 +119,7 @@ export class TarotAvatar {
         }
 
         this.state = state;
+        this.intent = intent;
 
         this.root.dataset.avatarState = state;
 
@@ -137,7 +140,13 @@ export class TarotAvatar {
                 'avatarstatechange',
                 {
                     detail: {
-                        state
+                        state,
+
+                        /*
+                         * Tipo de respuesta (tarot_reading, thanks,
+                         * comment, invite_share) para elegir gestos.
+                         */
+                        intent
                     }
                 }
             )
@@ -180,13 +189,15 @@ export class TarotAvatar {
      * controlados por eventos reales del motor de audio.
      */
     startSpeaking({
-        durationMs = null
+        durationMs = null,
+        intent = null
     } = {}) {
 
         this.setState(
             TarotAvatar.STATES.SPEAKING,
             {
-                status: 'Respondiendo...'
+                status: 'Respondiendo...',
+                intent
             }
         );
 
@@ -232,6 +243,31 @@ export class TarotAvatar {
                 this.idle();
             },
             Math.max(0, durationMs)
+        );
+    }
+
+    /**
+     * Celebración visual (regalo, follow, share, suscripción).
+     *
+     * NO cambia el estado: se superpone a lo que el avatar
+     * esté haciendo, sin cortar una respuesta en curso.
+     * La dibuja el renderer animado (?avatar=animado).
+     */
+    celebrate(kind = 'gift') {
+
+        if (this.destroyed) {
+            return;
+        }
+
+        this.root.dispatchEvent(
+            new CustomEvent(
+                'avatarcelebrate',
+                {
+                    detail: {
+                        kind
+                    }
+                }
+            )
         );
     }
 

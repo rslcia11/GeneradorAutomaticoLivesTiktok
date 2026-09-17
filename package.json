@@ -1,10 +1,15 @@
 {
   "name": "tiktok-live-poc",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Avatar de tarot animado con IA y voz que responde en vivo a comentarios y regalos de TikTok LIVE",
+  "main": "src/app.js",
+  "engines": {
+    "node": ">=20.6.0"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node --env-file=.env src/app.js",
+    "overlay": "node scripts/serve-overlay.js",
+    "test": "node scripts/test-offline.js"
   },
   "keywords": [],
   "author": "",

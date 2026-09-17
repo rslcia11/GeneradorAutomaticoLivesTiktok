@@ -291,6 +291,13 @@ const worker = new QueueWorker({
                     text:
                         result.text,
 
+                    /*
+                     * Tipo de respuesta: el overlay elige la
+                     * animación (p. ej. cartas solo en lecturas).
+                     */
+                    intent:
+                        result.intent,
+
                     ai: {
                         provider:
                             result.metadata?.provider ??

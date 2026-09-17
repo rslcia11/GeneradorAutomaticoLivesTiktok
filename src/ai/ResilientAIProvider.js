@@ -139,6 +139,16 @@ export class ResilientAIProvider {
             return true;
         }
 
+        /*
+         * JSON cortado o mal formado: otro modelo puede
+         * responder bien la misma petición.
+         */
+        if (
+            error?.code === 'GEMINI_INVALID_RESPONSE'
+        ) {
+            return true;
+        }
+
         if (
             error?.code === 'GEMINI_HTTP_ERROR'
         ) {

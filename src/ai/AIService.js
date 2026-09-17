@@ -1,3 +1,5 @@
+import { resolveIntent } from './intents.js';
+
 export class AIService {
 
     constructor({
@@ -59,7 +61,7 @@ export class AIService {
                 );
 
             const normalized =
-                this.#normalizeResponse(response);
+                this.#normalizeResponse(response, event);
 
             this.stats.completed++;
 
@@ -118,7 +120,7 @@ export class AIService {
         };
     }
 
-    #normalizeResponse(response) {
+    #normalizeResponse(response, event) {
 
         if (!response || typeof response !== 'object') {
             throw new Error(
@@ -139,6 +141,9 @@ export class AIService {
 
         return {
             text,
+
+            intent:
+                resolveIntent(event, response.intent),
 
             metadata:
                 response.metadata &&

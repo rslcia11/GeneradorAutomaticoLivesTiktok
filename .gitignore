@@ -45,3 +45,11 @@ desktop.ini
 
 # Local configuration
 *.local
+
+# Herramientas locales de IA / pruebas
+.claude/
+.rtfm/
+.piloto-arte/
+.piloto-voz/
+src/overlay/styles.backup.css
+src/overlay/styles.v1.css

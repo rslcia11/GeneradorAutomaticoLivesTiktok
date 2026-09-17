@@ -336,6 +336,63 @@ test('Sin interactionId, response resuelve la interacción en THINKING', () => {
 });
 
 
+// Voz: la duración real del audio reemplaza la estimación
+test('speechStarted: la respuesta dura lo que el audio + la pausa final', () => {
+    const { presenter, clock, log } = createPresenter({ speechTailMs: 100 });
+    const answer = response('A');
+
+    presenter.processing(processing('A'));
+    presenter.response(answer);
+
+    clock.advance(50);
+    assert.equal(presenter.speechStarted(answer, 3000), true);
+
+    // La estimación (1000 ms) ya no termina la respuesta.
+    clock.advance(3000);
+    assert.equal(presenter.isBusy, true);
+
+    clock.advance(100);
+    assert.deepEqual(log.at(-1), 'idle');
+    assert.equal(presenter.isBusy, false);
+});
+
+test('speechStarted tardío (otra interacción en curso) se ignora', () => {
+    const { presenter, clock, log } = createPresenter();
+    const answerA = response('A');
+
+    presenter.processing(processing('A'));
+    presenter.response(answerA);
+    presenter.processing(processing('B'));
+    presenter.response(response('B'));
+
+    clock.advance(SPEECH_MS);
+    assert.equal(log.at(-1), `speaking:RB:${SPEECH_MS}`);
+
+    // El audio de A terminó de decodificar tarde: no alarga B.
+    assert.equal(presenter.speechStarted(answerA, 9000), false);
+
+    clock.advance(SPEECH_MS);
+    assert.equal(log.at(-1), 'idle');
+});
+
+test('speechStarted ignora duraciones inválidas y estados sin respuesta', () => {
+    const { presenter } = createPresenter();
+    const answer = response('A');
+
+    presenter.processing(processing('A'));
+    assert.equal(presenter.speechStarted(answer, 1000), false);
+
+    presenter.response(answer);
+
+    for (const duration of [0, -5, NaN, Infinity, '2000']) {
+        assert.equal(presenter.speechStarted(answer, duration), false);
+    }
+
+    // Un objeto distinto con el mismo ID no cuenta.
+    assert.equal(presenter.speechStarted(response('A'), 1000), false);
+});
+
+
 // 14. Validación de callbacks
 test('Constructor exige callbacks', () => {
     assert.throws(

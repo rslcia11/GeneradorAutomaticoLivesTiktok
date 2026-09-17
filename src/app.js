@@ -9,6 +9,8 @@ import { QueueWorker } from './workers/QueueWorker.js';
 import { AIService } from './ai/AIService.js';
 import { GeminiProvider } from './ai/GeminiProvider.js';
 import { ResilientAIProvider } from './ai/ResilientAIProvider.js';
+import { EdgeTTSProvider } from './tts/EdgeTTSProvider.js';
+import { SpeechService } from './tts/SpeechService.js';
 
 const config = {
     tiktokUsername: 'tarotdebeto.co',
@@ -23,6 +25,26 @@ const config = {
     aiModels: {
         primary: 'gemini-3.5-flash-lite',
         fallback: 'gemini-3.6-flash'
+    },
+
+    /*
+     * Voz (opcional en .env):
+     *   TTS_ENABLED=false         → sin voz
+     *   TTS_VOICE=es-MX-JorgeNeural
+     *   TTS_RATE=default | -8%    TTS_PITCH=default | -12%
+     */
+    tts: {
+        enabled: process.env.TTS_ENABLED?.trim().toLowerCase() !== 'false',
+        voice: process.env.TTS_VOICE?.trim() || 'es-MX-JorgeNeural',
+        rate: process.env.TTS_RATE?.trim() || 'default',
+        pitch: process.env.TTS_PITCH?.trim() || 'default',
+
+        /*
+         * Normal ≈ 1.5 s. Presupuesto hasta ai_response:
+         * AIService (15 s × 2 + 5 s = 35 s) + voz (6 s) = 41 s,
+         * menor que thinkingTimeoutMs del overlay (50 s).
+         */
+        timeoutMs: 6000
     }
 };
 
@@ -130,6 +152,17 @@ const aiService = new AIService({
     timeoutMs:
         (config.aiTimeoutMs * 2) + 5000
 });
+
+
+/* ============================================================
+   VOZ (TTS)
+   ============================================================ */
+
+const speechService = config.tts.enabled
+    ? new SpeechService({
+        provider: new EdgeTTSProvider(config.tts)
+    })
+    : null;
 
 
 /* ============================================================
@@ -283,6 +316,9 @@ const worker = new QueueWorker({
             );
         }
 
+        const audio =
+            await speechService?.synthesizeForOverlay(result.text) ?? null;
+
         const aiResponseEvent =
             createAIEvent(
                 'ai_response',
@@ -290,6 +326,12 @@ const worker = new QueueWorker({
                 {
                     text:
                         result.text,
+
+                    /*
+                     * { mimeType, data (base64) } o null.
+                     * El fin del audio marca el fin de la respuesta.
+                     */
+                    audio,
 
                     /*
                      * Tipo de respuesta: el overlay elige la
@@ -447,7 +489,7 @@ async function start() {
         );
 
         console.log(
-            `📡 WebSocket: ws://localhost:${config.websocketPort}`
+            `📡 WebSocket: ws://127.0.0.1:${config.websocketPort}`
         );
 
         console.log(
@@ -464,6 +506,12 @@ async function start() {
 
         console.log(
             `🛟 IA fallback: ${config.aiModels.fallback}`
+        );
+
+        console.log(
+            speechService
+                ? `🗣️ Voz: ${config.tts.voice}`
+                : '🔇 Voz desactivada (TTS_ENABLED=false)'
         );
 
         console.log(
@@ -560,6 +608,13 @@ async function shutdown() {
             `📊 Gemini ${config.aiModels.fallback}:`,
             fallbackAIProvider.getStats()
         );
+
+        if (speechService) {
+            console.log(
+                '📊 Voz:',
+                speechService.getStats()
+            );
+        }
 
         await gateway.stop();
 

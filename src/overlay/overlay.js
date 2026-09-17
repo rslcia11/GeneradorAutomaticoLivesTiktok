@@ -1,8 +1,10 @@
 import { TarotAvatar } from './TarotAvatar.js';
 import { InteractionPresenter } from './InteractionPresenter.js';
+import { SpeechPlayer } from './SpeechPlayer.js';
 import { startDebugTools } from './debugTools.js';
 
-const WS_URL = 'ws://localhost:8080';
+/* IP directa: el backend solo escucha en 127.0.0.1 ("localhost" podría ir a ::1). */
+const WS_URL = 'ws://127.0.0.1:8080';
 
 const elements = {
     connectionStatus:
@@ -42,6 +44,31 @@ const avatar = new TarotAvatar({
 });
 
 /*
+ * Voz de las respuestas. El navegador puede bloquear el audio
+ * hasta el primer clic/tecla (en OBS no pasa).
+ */
+const speech = new SpeechPlayer();
+
+/*
+ * Respuesta cuya voz controla la boca. Mientras exista, la boca
+ * sigue SOLO el volumen real (0 al cargar y en la pausa final),
+ * nunca el ritmo sintético.
+ */
+let voicedResponse = null;
+let followingSpeechLevel = false;
+
+for (const gesture of ['pointerdown', 'keydown']) {
+    window.addEventListener(gesture, () => speech.unlock());
+}
+
+/* Toda fase nueva de una interacción empieza cortando la voz anterior. */
+const afterStoppingSpeech = callback => (...args) => {
+    speech.stop();
+    voicedResponse = null;
+    return callback(...args);
+};
+
+/*
  * Presenta las interacciones de IA de una en una.
  * Mientras está ocupado, nada interrumpe al avatar.
  */
@@ -49,13 +76,10 @@ const presenter = new InteractionPresenter({
     estimateDurationMs: text =>
         avatar.estimateSpeechDuration(text),
 
-    onThinking: showThinking,
-    onSpeaking: showResponse,
-    onFailed: showFailure,
-
-    onIdle: () => {
-        avatar.idle();
-    }
+    onThinking: afterStoppingSpeech(showThinking),
+    onSpeaking: afterStoppingSpeech(showResponse),
+    onFailed: afterStoppingSpeech(showFailure),
+    onIdle: afterStoppingSpeech(() => avatar.idle())
 });
 
 /*
@@ -475,15 +499,14 @@ function showResponse(event) {
         text;
 
     /*
-     * La duración la controla InteractionPresenter
-     * (estimada según cantidad de palabras).
-     *
-     * Cuando integremos TTS, el fin del audio
-     * deberá marcar el fin de la interacción.
+     * La duración la controla InteractionPresenter: estimada por
+     * palabras y, si hay voz, la duración real del audio.
      */
     avatar.startSpeaking({
         intent: event.intent ?? null
     });
+
+    playSpeech(event);
 
     console.log(
         'Respuesta IA recibida:',
@@ -498,6 +521,61 @@ function showResponse(event) {
                 event.ai?.fallbackUsed ?? false
         }
     );
+}
+
+
+function playSpeech(event) {
+
+    if (!event.audio) {
+        return;
+    }
+
+    voicedResponse = event;
+    followSpeechLevel();
+
+    speech.play(event.audio)
+        .then(result => {
+            /* null: se pidió otra cosa mientras cargaba. */
+            if (result) {
+                presenter.speechStarted(event, result.durationMs);
+            }
+        })
+        .catch(error => {
+            /*
+             * Sin voz: la respuesta sigue con la duración estimada
+             * y la boca vuelve al ritmo sintético.
+             */
+            if (voicedResponse === event) {
+                voicedResponse = null;
+            }
+
+            console.warn(
+                'Voz no reproducida:',
+                error.code ?? error.message
+            );
+        });
+}
+
+/* Boca del avatar animado = volumen real de la voz, cuadro a cuadro. */
+function followSpeechLevel() {
+
+    if (followingSpeechLevel) {
+        return;
+    }
+
+    followingSpeechLevel = true;
+
+    const step = () => {
+        if (!voicedResponse) {
+            followingSpeechLevel = false;
+            return;
+        }
+
+        animatedAvatar?.setSpeechLevel(speech.level);
+        requestAnimationFrame(step);
+    };
+
+    requestAnimationFrame(step);
 }
 
 
@@ -854,6 +932,7 @@ function shutdownOverlay() {
     );
 
     presenter.reset();
+    speech.destroy();
 
     animatedAvatar?.destroy();
     animatedAvatar = null;
@@ -922,6 +1001,11 @@ async function startAnimatedAvatar() {
    ============================================================ */
 
 connect();
+
+/* ?debug: permite simular eventos del backend desde DevTools. */
+if (overlayParams.has('debug')) {
+    window.overlayDebug = { handleEvent };
+}
 
 /*
  * El avatar animado carga en paralelo: la conexión al LIVE

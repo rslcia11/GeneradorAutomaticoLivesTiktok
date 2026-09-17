@@ -4,7 +4,8 @@
  * Presenta las interacciones de IA de una en una y en orden:
  *
  *   ai_processing → THINKING
- *   ai_response   → SPEAKING (durante la duración estimada)
+ *   ai_response   → SPEAKING (duración estimada, o la real del
+ *                   audio si se llama speechStarted)
  *   ai_error      → fallo visible durante failureDurationMs
  *
  * Por qué existe:
@@ -31,17 +32,21 @@ export class InteractionPresenter {
         failureDurationMs = 1600,
 
         /*
-         * Debe ser mayor que el timeout de AIService en backend.
+         * Debe ser mayor que lo máximo que tarda el backend en
+         * enviar ai_response: AIService (35 s) + voz (6 s).
          * Evita que la presentación quede bloqueada si el
          * backend se reinicia en plena consulta.
          */
-        thinkingTimeoutMs = 45000,
+        thinkingTimeoutMs = 50000,
 
         /*
          * Máximo de interacciones esperando turno.
          * Con más, se descarta la más antigua.
          */
         maxPending = 5,
+
+        /* Pausa breve tras terminar la voz, antes de la siguiente. */
+        speechTailMs = 400,
 
         setTimer = (callback, ms) => setTimeout(callback, ms),
         clearTimer = id => clearTimeout(id)
@@ -78,6 +83,7 @@ export class InteractionPresenter {
         this.failureDurationMs = failureDurationMs;
         this.thinkingTimeoutMs = thinkingTimeoutMs;
         this.maxPending = maxPending;
+        this.speechTailMs = speechTailMs;
 
         this.setTimer = setTimer;
         this.clearTimer = clearTimer;
@@ -134,6 +140,30 @@ export class InteractionPresenter {
             type: 'error',
             event
         });
+    }
+
+    /**
+     * La voz de esta respuesta empezó y dura durationMs:
+     * reemplaza la duración estimada por palabras.
+     *
+     * Se identifica por el MISMO objeto evento recibido en
+     * onSpeaking, así un audio que empieza tarde (después de
+     * que la interacción terminó) no afecta a la siguiente.
+     */
+    speechStarted(event, durationMs) {
+
+        if (
+            this.current?.outcome?.type !== 'response' ||
+            this.current.outcome.event !== event ||
+            !Number.isFinite(durationMs) ||
+            durationMs <= 0
+        ) {
+            return false;
+        }
+
+        this.#startTimer(durationMs + this.speechTailMs);
+
+        return true;
     }
 
     /**

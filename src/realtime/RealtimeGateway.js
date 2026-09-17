@@ -1,9 +1,24 @@
 import { WebSocketServer, WebSocket } from 'ws';
 
+/*
+ * Un cliente con más de esto pendiente no está leyendo: se le saltan
+ * eventos en vez de acumular audio en la RAM del streamer.
+ */
+const MAX_BUFFERED_BYTES = 2 * 1024 * 1024;
+
 export class RealtimeGateway {
 
-    constructor({ port = 8080 } = {}) {
+    constructor({
+        port = 8080,
+
+        /*
+         * Solo esta PC (el overlay de OBS corre en la misma máquina).
+         * Sin esto, cualquiera en la red local podría conectarse.
+         */
+        host = '127.0.0.1'
+    } = {}) {
         this.port = port;
+        this.host = host;
         this.wss = null;
     }
 
@@ -13,12 +28,16 @@ export class RealtimeGateway {
         }
 
         this.wss = new WebSocketServer({
-            port: this.port
+            port: this.port,
+            host: this.host,
+
+            /* El overlay solo recibe; no hay mensajes entrantes legítimos. */
+            maxPayload: 1024
         });
 
         this.wss.on('listening', () => {
             console.log(
-                `✅ WebSocket escuchando en ws://localhost:${this.port}`
+                `✅ WebSocket escuchando en ws://${this.host}:${this.port}`
             );
         });
 
@@ -63,7 +82,10 @@ export class RealtimeGateway {
         const payload = JSON.stringify(event);
 
         for (const client of this.wss.clients) {
-            if (client.readyState === WebSocket.OPEN) {
+            if (
+                client.readyState === WebSocket.OPEN &&
+                client.bufferedAmount <= MAX_BUFFERED_BYTES
+            ) {
                 client.send(payload);
             }
         }

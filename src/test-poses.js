@@ -46,16 +46,6 @@ test('selectPose: cada intención tiene su pose al hablar', () => {
     assert.equal(selectPose({ state: 'speaking', intent: 'comment' }, () => 0), 'comment');
 });
 
-test('selectPose: comentar alterna entre sus tres variantes', () => {
-    assert.equal(selectPose({ state: 'speaking', intent: 'comment' }, () => 0), 'comment');
-    assert.equal(selectPose({ state: 'speaking', intent: 'comment' }, () => 0.5), 'comment-2');
-    assert.equal(selectPose({ state: 'speaking', intent: 'comment' }, () => 0.99), 'comment-3');
-});
-
-test('selectPose: escuchar y reaccionar tienen su propia pose', () => {
-    assert.equal(selectPose({ state: 'listening' }), 'listening');
-    assert.equal(selectPose({ state: 'reacting' }), 'react');
-});
 
 test('selectPose: agradecer alterna entre sus dos variantes', () => {
     assert.equal(selectPose({ state: 'speaking', intent: 'thanks' }, () => 0), 'thanks-1');
@@ -68,16 +58,16 @@ test('selectPose: intención desconocida o ausente → comentario', () => {
     assert.equal(selectPose({ state: 'speaking' }, () => 0), 'comment');
 });
 
-test('selectPose: pensando tiene pose; el reposo usa la base aunque haya intención', () => {
+test('selectPose: pensando tiene pose; reposo/escuchando/reaccionando usan la base', () => {
     assert.equal(selectPose({ state: 'thinking', intent: 'thanks' }), 'thinking');
-    assert.equal(selectPose({ state: 'idle', intent: 'tarot_reading' }), BASE_POSE);
+
+    for (const state of ['idle', 'listening', 'reacting']) {
+        assert.equal(selectPose({ state, intent: 'tarot_reading' }), BASE_POSE);
+    }
 });
 
 test('toda pose seleccionable tiene archivo y el archivo existe', () => {
-    const selectable = new Set([
-        'thinking', 'tarot', 'comment', 'comment-2', 'comment-3',
-        'thanks-1', 'thanks-2', 'invite', 'listening', 'react'
-    ]);
+    const selectable = new Set(['thinking', 'tarot', 'comment', 'thanks-1', 'thanks-2', 'invite']);
 
     assert.deepEqual(new Set(Object.keys(POSE_FILES)), selectable);
 

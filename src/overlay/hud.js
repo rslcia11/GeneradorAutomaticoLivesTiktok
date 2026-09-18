@@ -34,7 +34,7 @@ function iconOf(service) {
     const icon = document.createElement('span');
 
     icon.className = 'service-menu__icon';
-    icon.textContent = SERVICE_ICONS[service.style] ?? '🎁';
+    icon.textContent = service.icon ?? SERVICE_ICONS[service.style] ?? '🎁';
 
     return icon;
 }

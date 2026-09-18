@@ -62,3 +62,6 @@ streamer.config.json
 
 # Capturas generadas por tools/capture-overlay.mjs
 tools/capturas/
+
+# Muestras de voz generadas localmente (MP3/WAV, no van al repo)
+samples/

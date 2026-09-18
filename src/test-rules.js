@@ -207,6 +207,74 @@ test('Evento inválido → IGNORE', () => {
     assert.equal(result.reason, 'invalid_event');
 });
 
+// 16. Saludo exacto → IGNORE filler_comment
+test('Saludo suelto → IGNORE filler_comment', () => {
+    const result = engine.evaluate({
+        type: 'comment',
+        content: 'hola'
+    });
+
+    assert.equal(result.action, ACTION.IGNORE);
+    assert.equal(result.reason, 'filler_comment');
+});
+
+// 17. Comentario de 1 carácter → IGNORE filler_comment
+test('Comentario de 1 carácter → IGNORE filler_comment', () => {
+    const result = engine.evaluate({
+        type: 'comment',
+        content: 'x'
+    });
+
+    assert.equal(result.action, ACTION.IGNORE);
+    assert.equal(result.reason, 'filler_comment');
+});
+
+// 18. Solo emojis → IGNORE filler_comment
+test('Solo emojis → IGNORE filler_comment', () => {
+    const result = engine.evaluate({
+        type: 'comment',
+        content: '🔥🔥🔥'
+    });
+
+    assert.equal(result.action, ACTION.IGNORE);
+    assert.equal(result.reason, 'filler_comment');
+});
+
+// 19. Pregunta de tarot → QUEUE con prioridad HIGH
+test('Pregunta con keyword tarot → prioridad HIGH', () => {
+    const result = engine.evaluate({
+        type: 'comment',
+        content: '¿Qué dice el tarot sobre mi trabajo?'
+    });
+
+    assert.equal(result.action, ACTION.QUEUE);
+    assert.equal(result.priority, PRIORITY.HIGH);
+    assert.equal(result.reason, 'valid_comment');
+});
+
+// 20. Keyword tarot configurables por instancia
+test('Tarot keywords configurables → boost solo con lista custom', () => {
+    const customEngine = new EventRuleEngine({
+        tarotKeywords: ['unicornio'],
+        tarotBoostPriority: PRIORITY.HIGH
+    });
+
+    const noBoost = customEngine.evaluate({
+        type: 'comment',
+        content: 'Pregunta sobre tarot'   // 'tarot' no está en keywords custom
+    });
+
+    assert.equal(noBoost.priority, PRIORITY.NORMAL);
+
+    const boosted = customEngine.evaluate({
+        type: 'comment',
+        content: 'Hay un unicornio en mi carta'
+    });
+
+    assert.equal(boosted.priority, PRIORITY.HIGH);
+});
+
+
 console.log(
-    `\n🎯 ${passed}/15 pruebas superadas correctamente.`
+    `\n🎯 ${passed}/20 pruebas superadas correctamente.`
 );

@@ -79,7 +79,7 @@ await test('Procesa elemento de la cola', async () => {
     const processor = createProcessor();
     const processed = [];
 
-    addComment(processor, 'Hola');
+    addComment(processor, 'Primera pregunta');
 
     const worker = new QueueWorker({
         processor,
@@ -96,7 +96,7 @@ await test('Procesa elemento de la cola', async () => {
 
     await worker.stop();
 
-    assert.deepEqual(processed, ['Hola']);
+    assert.deepEqual(processed, ['Primera pregunta']);
     assert.equal(processor.queueSize, 0);
 });
 
@@ -109,9 +109,9 @@ await test('Procesa trabajos secuencialmente', async () => {
     let maxConcurrent = 0;
     const processed = [];
 
-    addComment(processor, 'A');
-    addComment(processor, 'B');
-    addComment(processor, 'C');
+    addComment(processor, 'P1');
+    addComment(processor, 'P2');
+    addComment(processor, 'P3');
 
     const worker = new QueueWorker({
         processor,
@@ -142,7 +142,7 @@ await test('Procesa trabajos secuencialmente', async () => {
     assert.equal(maxConcurrent, 1);
     assert.deepEqual(
         processed,
-        ['A', 'B', 'C']
+        ['P1', 'P2', 'P3']
     );
 });
 
@@ -255,7 +255,7 @@ await test('Un error no detiene trabajos posteriores', async () => {
 await test('Actualiza estadísticas correctamente', async () => {
     const processor = createProcessor();
 
-    addComment(processor, 'OK');
+    addComment(processor, 'Pr1');
     addComment(processor, 'ERROR');
 
     const worker = new QueueWorker({
@@ -449,8 +449,8 @@ await test('Error en onResult no detiene worker', async () => {
     console.error = () => {};
 
     try {
-        addComment(processor, 'A');
-        addComment(processor, 'B');
+        addComment(processor, 'Pa');
+        addComment(processor, 'Pb');
 
         const worker = new QueueWorker({
             processor,

@@ -25,7 +25,8 @@ export class EventProcessor {
             visual: 0,
             queued: 0,
             priority: 0,
-            dropped: 0
+            dropped: 0,
+            userDuplicate: 0
         };
     }
 
@@ -102,6 +103,18 @@ export class EventProcessor {
     }
 
     #enqueue(event, decision, isPriority) {
+
+        if (event.type === 'comment') {
+            const userId = event.user?.id ?? event.user?.username;
+            if (userId != null && this.queue.hasUser(userId)) {
+                this.stats.userDuplicate++;
+                return {
+                    decision,
+                    queued: false,
+                    reason: 'user_already_queued'
+                };
+            }
+        }
 
         const queueItem = {
             event,

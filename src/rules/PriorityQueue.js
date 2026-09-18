@@ -101,6 +101,14 @@ export class PriorityQueue {
         return this.items.length >= this.maxSize;
     }
 
+    hasUser(userId) {
+        if (userId == null) return false;
+        return this.items.some(entry => {
+            const u = entry.item?.event?.user;
+            return (u?.id ?? u?.username) === userId;
+        });
+    }
+
     /*
      * Devuelve una copia para diagnóstico.
      * No exponemos directamente this.items.

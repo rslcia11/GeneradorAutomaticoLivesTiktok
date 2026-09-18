@@ -47,7 +47,7 @@ function createClock(start = 1_700_000_000_000) {
     };
 }
 
-const comment = (id, content = '¿Tendré suerte?') => ({
+const comment = (id, content = 'Una pregunta del día') => ({
     type: 'comment',
     user: { id, username: `user${id}` },
     content

@@ -215,6 +215,46 @@ test('Prioridad inválida → error', () => {
     );
 });
 
+// 16. hasUser encuentra usuario por id
+test('hasUser() encuentra item por user.id', () => {
+    const queue = new PriorityQueue();
+
+    queue.enqueue(
+        { event: { type: 'comment', user: { id: 'u42', username: 'alice' } } },
+        50
+    );
+
+    assert.equal(queue.hasUser('u42'), true);
+    assert.equal(queue.hasUser('u99'), false);
+});
+
+// 17. hasUser encuentra usuario por username cuando no hay id
+test('hasUser() encuentra item por user.username sin id', () => {
+    const queue = new PriorityQueue();
+
+    queue.enqueue(
+        { event: { type: 'comment', user: { username: 'bob' } } },
+        50
+    );
+
+    assert.equal(queue.hasUser('bob'), true);
+    assert.equal(queue.hasUser('alice'), false);
+});
+
+// 18. hasUser con userId null → false
+test('hasUser(null) → false', () => {
+    const queue = new PriorityQueue();
+
+    queue.enqueue(
+        { event: { type: 'comment', user: { id: 'u1' } } },
+        50
+    );
+
+    assert.equal(queue.hasUser(null), false);
+    assert.equal(queue.hasUser(undefined), false);
+});
+
+
 console.log(
-    `\n🎯 ${passed}/15 pruebas de PriorityQueue superadas correctamente.`
+    `\n🎯 ${passed}/18 pruebas de PriorityQueue superadas correctamente.`
 );

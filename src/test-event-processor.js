@@ -41,7 +41,7 @@ test('Comentario válido → QUEUE', () => {
 
     const result = processor.process({
         type: 'comment',
-        content: 'Hola'
+        content: 'Primera pregunta'
     });
 
     assert.equal(result.decision.action, ACTION.QUEUE);
@@ -202,12 +202,12 @@ test('peek() consulta sin consumir', () => {
 
     processor.process({
         type: 'comment',
-        content: 'Hola'
+        content: 'Mi consulta'
     });
 
     const item = processor.peek();
 
-    assert.equal(item.event.content, 'Hola');
+    assert.equal(item.event.content, 'Mi consulta');
     assert.equal(processor.queueSize, 1);
 });
 
@@ -217,12 +217,12 @@ test('clear() vacía la cola', () => {
 
     processor.process({
         type: 'comment',
-        content: 'A'
+        content: 'P1'
     });
 
     processor.process({
         type: 'comment',
-        content: 'B'
+        content: 'P2'
     });
 
     processor.clear();
@@ -239,17 +239,17 @@ test('Cola llena → comentario nuevo descartado', () => {
 
     processor.process({
         type: 'comment',
-        content: 'A'
+        content: 'P1'
     });
 
     processor.process({
         type: 'comment',
-        content: 'B'
+        content: 'P2'
     });
 
     const result = processor.process({
         type: 'comment',
-        content: 'C'
+        content: 'P3'
     });
 
     assert.equal(result.queued, false);
@@ -268,12 +268,12 @@ test('Prioridad alta desplaza evento inferior', () => {
 
     processor.process({
         type: 'comment',
-        content: 'A'
+        content: 'P1'
     });
 
     processor.process({
         type: 'comment',
-        content: 'B'
+        content: 'P2'
     });
 
     const result = processor.process({
@@ -369,6 +369,52 @@ test('Error en callback visual no rompe EventProcessor', () => {
     }
 });
 
+// 16. Mismo usuario → segundo comentario rechazado
+test('Mismo usuario → segundo comentario no entra a cola', () => {
+    const processor = createProcessor();
+
+    processor.process({
+        type: 'comment',
+        content: 'Primera pregunta',
+        user: { id: 'u1', username: 'alice' }
+    });
+
+    const result = processor.process({
+        type: 'comment',
+        content: 'Segunda pregunta',
+        user: { id: 'u1', username: 'alice' }
+    });
+
+    assert.equal(result.queued, false);
+    assert.equal(result.reason, 'user_already_queued');
+    assert.equal(processor.queueSize, 1);
+
+    const stats = processor.getStats();
+    assert.equal(stats.userDuplicate, 1);
+});
+
+
+// 17. Usuarios distintos → ambos entran a cola
+test('Usuarios distintos → ambos entran a cola', () => {
+    const processor = createProcessor();
+
+    processor.process({
+        type: 'comment',
+        content: 'Primera pregunta',
+        user: { id: 'u1', username: 'alice' }
+    });
+
+    const result = processor.process({
+        type: 'comment',
+        content: 'Segunda pregunta',
+        user: { id: 'u2', username: 'bob' }
+    });
+
+    assert.equal(result.queued, true);
+    assert.equal(processor.queueSize, 2);
+});
+
+
 console.log(
-    `\n🎯 ${passed}/15 pruebas de EventProcessor superadas correctamente.`
+    `\n🎯 ${passed}/17 pruebas de EventProcessor superadas correctamente.`
 );

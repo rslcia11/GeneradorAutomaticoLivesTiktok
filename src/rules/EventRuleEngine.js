@@ -1,3 +1,20 @@
+const EMOJI_ONLY_PATTERN = /^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+$/u;
+
+const DEFAULT_GREETING_WORDS = new Set([
+    'hola', 'hi', 'hello', 'xd', 'jaja', 'jajaja', 'jajajaja', 'jajajajaja',
+    'lol', 'ok', 'buenas', 'saludos', 'gracias', 'ty', 'thx', 'wow',
+    'bien', 'genial', 'cool', 'gg', 'jeje', 'jejeje', 'amo',
+    'buenas noches', 'buenas tardes', 'buenos días', 'buen día',
+    'que bueno', 'muy bien', 'excelente', 'chevere', 'chévere'
+]);
+
+const DEFAULT_TAROT_KEYWORDS = [
+    'carta', 'cartas', 'tarot', 'lectura', 'leer',
+    'futuro', 'amor', 'trabajo', 'dinero', 'destino', 'signo',
+    'horoscopo', 'horóscopo', 'suerte', 'consejo',
+    'relación', 'relacion', 'pareja', 'camino'
+];
+
 const ACTION = Object.freeze({
     IGNORE: 'ignore',
     VISUAL: 'visual',
@@ -17,16 +34,21 @@ export class EventRuleEngine {
     constructor(config = {}) {
 
         const {
-            /*
-             * Opcional (ServicePolicy): decide qué servicio recibe cada
-             * espectador según lo que haya regalado en 24 h. Sin él, el
-             * motor se comporta como antes: todos por igual.
-             */
             policy = null,
+            greetingWords = DEFAULT_GREETING_WORDS,
+            tarotKeywords = DEFAULT_TAROT_KEYWORDS,
+            tarotBoostPriority = PRIORITY.HIGH,
+            minCommentLength = 2,
             ...rest
         } = config;
 
         this.policy = policy;
+        this.greetingWords = greetingWords instanceof Set
+            ? greetingWords
+            : new Set(greetingWords);
+        this.tarotKeywords = tarotKeywords;
+        this.tarotBoostPriority = tarotBoostPriority;
+        this.minCommentLength = minCommentLength;
 
         this.config = {
             commentsEnabled: true,
@@ -93,6 +115,10 @@ export class EventRuleEngine {
             return this.#ignore('empty_comment');
         }
 
+        if (this.#isFiller(content)) {
+            return this.#ignore('filler_comment');
+        }
+
         const decision = this.policy?.evaluateComment(event);
 
         /*
@@ -109,9 +135,14 @@ export class EventRuleEngine {
             };
         }
 
+        const basePriority = decision?.priority ?? PRIORITY.NORMAL;
+        const priority = this.#hasTarotKeyword(content)
+            ? Math.max(basePriority, this.tarotBoostPriority)
+            : basePriority;
+
         return {
             action: ACTION.QUEUE,
-            priority: decision?.priority ?? PRIORITY.NORMAL,
+            priority,
             reason: 'valid_comment',
 
             metadata: decision
@@ -120,6 +151,17 @@ export class EventRuleEngine {
 
             event
         };
+    }
+
+    #isFiller(content) {
+        if (content.length < this.minCommentLength) return true;
+        if (EMOJI_ONLY_PATTERN.test(content)) return true;
+        return this.greetingWords.has(content.toLowerCase());
+    }
+
+    #hasTarotKeyword(content) {
+        const lower = content.toLowerCase();
+        return this.tarotKeywords.some(kw => lower.includes(kw));
     }
 
     #evaluateGift(event) {

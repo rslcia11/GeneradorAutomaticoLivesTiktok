@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 
 import { TikTokLiveAdapter } from './tiktok/TikTokLiveAdapter.js';
 import { RealtimeGateway } from './realtime/RealtimeGateway.js';
+import { resolveAccessKey } from './realtime/accessKey.js';
+import { retryWithBackoff } from './tiktok/retryWithBackoff.js';
 import { EventProcessor } from './events/EventProcessor.js';
 import { EventRuleEngine } from './rules/EventRuleEngine.js';
 import { PriorityQueue } from './rules/PriorityQueue.js';
@@ -16,7 +18,7 @@ import { ThankYouTemplates } from './ai/ThankYouTemplates.js';
 import { ServicePolicy } from './rules/ServicePolicy.js';
 import { createLedgerSaver, loadLedger } from './rules/ledgerStore.js';
 import { decorateMenu, normalizeGifts } from './rules/giftCatalog.js';
-import { readStreamerConfig, resolveContact, resolvePromo, resolveTiktokUsername } from './config/streamerConfig.js';
+import { asNumber, readStreamerConfig, resolveContact,resolvePromo, resolveTiktokUsername } from './config/streamerConfig.js';
 import { logger } from './logger.js';
 
 /* Preferencias del streamer (frase y teléfono). Las claves siguen en .env. */
@@ -24,7 +26,16 @@ const streamer = readStreamerConfig('./streamer.config.json');
 
 const config = {
     tiktokUsername: resolveTiktokUsername(streamer, process.env),
-    websocketPort: 8080,
+
+    /*
+     * Servidor del overlay (página + WebSocket, un solo puerto).
+     * Siempre en loopback: en producción Caddy pone HTTPS delante.
+     * La clave (OVERLAY_KEY) es obligatoria fuera de loopback.
+     */
+    gateway: {
+        host: process.env.GATEWAY_HOST?.trim() || '127.0.0.1',
+        port: asNumber(process.env.GATEWAY_PORT, 8080)
+    },
 
     queueMaxSize: 100,
     minGiftDiamondsForPriority: 10,
@@ -74,10 +85,18 @@ const config = {
         process.env.SUPPORT_LEDGER_FILE?.trim() ||
         './data/support-ledger.json',
 
-    /* Reconexión automática tras caída de red. */
-    reconnectMaxAttempts: 5,
+    /*
+     * Reconexión automática tras caída de red o cuando el cliente aún no
+     * está en vivo. 0 = reintentar para siempre (servidor 24/7). Cada
+     * intento consume una firma de Euler Stream: por eso el tope de 2 min.
+     */
+    reconnectMaxAttempts: /^\d+$/.test(process.env.RECONNECT_MAX_ATTEMPTS?.trim() ?? '')
+        ? Number(process.env.RECONNECT_MAX_ATTEMPTS)
+        : 5,
     reconnectBaseDelayMs: 5000
 };
+
+config.overlayKey = resolveAccessKey(process.env, config.gateway);
 
 
 /* ============================================================
@@ -97,7 +116,15 @@ if (!geminiApiKey) {
    UTILIDADES
    ============================================================ */
 
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+/*
+ * URL que se pega en OBS. La clave NO se escribe en el log (en el servidor
+ * los logs se guardan): la URL completa la imprime deploy/nuevo-cliente.sh.
+ */
+function overlayUrl() {
+    const url = `http://${config.gateway.host}:${config.gateway.port}/?avatar=animado`;
+
+    return config.overlayKey ? `${url}&key=<OVERLAY_KEY>` : url;
+}
 
 
 /* ============================================================
@@ -197,7 +224,15 @@ async function loadRoomGifts() {
 }
 
 const gateway = new RealtimeGateway({
-    port: config.websocketPort,
+    ...config.gateway,
+    accessKey: config.overlayKey,
+    log: logger,
+
+    /* Para el monitor del servidor. Nada de aquí es secreto. */
+    health: () => ({
+        tiktok: tiktok.connected ? 'connected' : 'connecting',
+        uptimeSeconds: Math.round(process.uptime())
+    }),
 
     /* El overlay recibe el menú y la tabla apenas se conecta. */
     welcome: () => [
@@ -650,18 +685,16 @@ tiktok.onEvent(event => {
    START
    ============================================================ */
 
-async function connectWithRetry() {
-    for (let attempt = 1; attempt <= config.reconnectMaxAttempts; attempt++) {
-        try {
-            return await tiktok.connect();
-        } catch (err) {
-            if (attempt === config.reconnectMaxAttempts) throw err;
-            const delay = Math.min(config.reconnectBaseDelayMs * 2 ** (attempt - 1), 120_000);
-            logger.warn(`Conexión fallida (${err.message}), reintentando en ${(delay / 1000).toFixed(0)} s... (${attempt}/${config.reconnectMaxAttempts})`);
-            await sleep(delay);
-        }
-    }
-}
+/* Misma política para la conexión inicial y para cada caída. */
+const retryTikTok = (attempt, label) => retryWithBackoff(attempt, {
+    maxAttempts: config.reconnectMaxAttempts,
+    baseDelayMs: config.reconnectBaseDelayMs,
+    stopped: () => shuttingDown,
+    onRetry: ({ attempt: n, error, delayMs }) => logger.warn(
+        `${label} falló (${error.message}); reintento en ${(delayMs / 1000).toFixed(0)} s ` +
+        `(${n}/${config.reconnectMaxAttempts > 0 ? config.reconnectMaxAttempts : '∞'})`
+    )
+});
 
 async function start() {
 
@@ -669,34 +702,44 @@ async function start() {
 
         logger.info('🚀 Iniciando aplicación...');
 
-        gateway.start();
+        await gateway.start();
 
+        logger.info(`🖥️  Overlay para OBS: ${overlayUrl()}`);
         logger.info(`🔌 Conectando con @${config.tiktokUsername}...`);
 
-        const session = await connectWithRetry();
+        const session = await retryTikTok(() => tiktok.connect(), 'Conexión con TikTok');
+
+        if (!session) {
+            return;
+        }
 
         /*
-         * Registrar manejador de desconexión inesperada.
-         * Se ignora si el cierre fue iniciado por el streamer o por STREAM_END.
+         * Registrar manejador de desconexión.
+         * Nunca actúa al apagar la app.
          */
         tiktok.onDisconnect(async ({ intentional }) => {
-            if (intentional || shuttingDown) return;
-            logger.warn('TikTok desconectado inesperadamente, intentando reconectar...');
-            for (let attempt = 1; attempt <= config.reconnectMaxAttempts; attempt++) {
-                const delay = Math.min(config.reconnectBaseDelayMs * 2 ** (attempt - 1), 120_000);
-                logger.info(`Reconexión en ${(delay / 1000).toFixed(0)} s (intento ${attempt}/${config.reconnectMaxAttempts})...`);
-                await sleep(delay);
-                if (shuttingDown) return;
-                try {
-                    await tiktok.reconnect();
+            if (shuttingDown) return;
+
+            /*
+             * Fin del LIVE: en la PC del streamer, se queda quieto. En el
+             * servidor 24/7 (reintentos infinitos) espera el próximo LIVE.
+             */
+            const waitForNextLive = config.reconnectMaxAttempts <= 0;
+
+            if (intentional && !waitForNextLive) return;
+
+            logger.warn(intentional
+                ? 'El LIVE terminó; esperando el próximo...'
+                : 'TikTok desconectado inesperadamente, intentando reconectar...');
+
+            try {
+                if (await retryTikTok(() => tiktok.reconnect(), 'Reconexión')) {
                     logger.info('✅ TikTok reconectado');
-                    return;
-                } catch (err) {
-                    logger.warn(`Intento ${attempt} fallido: ${err.message}`);
                 }
+            } catch {
+                logger.error('No se pudo reconectar con TikTok. Cerrando la aplicación.');
+                shutdown();
             }
-            logger.error('No se pudo reconectar con TikTok. Cerrando la aplicación.');
-            shutdown();
         });
 
         /*
@@ -709,7 +752,6 @@ async function start() {
 
         logger.info('✅ TikTok conectado');
         logger.info(`Room ID: ${session.roomId}`);
-        logger.info(`📡 WebSocket: ws://127.0.0.1:${config.websocketPort}`);
         logger.info(`📦 Capacidad de cola: ${config.queueMaxSize}`);
         logger.info('⚙️  QueueWorker iniciado');
         logger.info(`🤖 IA principal: ${config.aiModels.primary}`);
@@ -734,6 +776,9 @@ async function start() {
     } catch (error) {
 
         logger.error(`❌ Error iniciando aplicación: ${error.message}`);
+
+        /* Que el disconnect de abajo no dispare la espera del próximo LIVE. */
+        shuttingDown = true;
 
         try {
             await worker.stop();

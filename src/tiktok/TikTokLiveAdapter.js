@@ -7,6 +7,12 @@ export class TikTokLiveAdapter {
 
     #intentionalDisconnect = false;
     #disconnectHandler = null;
+    #connected = false;
+
+    /** ¿Hay conexión viva con el LIVE? (para /healthz). */
+    get connected() {
+        return this.#connected;
+    }
 
     constructor(username) {
         if (!username) {
@@ -193,6 +199,7 @@ export class TikTokLiveAdapter {
 
         // Desconexión de WebSocket
         this.connection.on('disconnected', ({ code, reason } = {}) => {
+            this.#connected = false;
             this.#disconnectHandler?.({
                 intentional: this.#intentionalDisconnect,
                 code,
@@ -204,6 +211,8 @@ export class TikTokLiveAdapter {
     async connect() {
         this.registerListeners();
         const state = await this.connection.connect();
+
+        this.#connected = true;
 
         return {
             platform: 'tiktok',
@@ -226,6 +235,7 @@ export class TikTokLiveAdapter {
 
     disconnect() {
         this.#intentionalDisconnect = true;
+        this.#connected = false;
         this.connection.disconnect();
     }
 }

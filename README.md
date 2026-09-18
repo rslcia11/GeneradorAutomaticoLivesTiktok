@@ -110,31 +110,29 @@ Es obligatoria: `TIKTOK_USERNAME` en `.env` o `tiktokUsername` en `streamer.conf
 
 ## ▶️ Uso
 
-Necesitas **dos terminales**:
+Un solo comando: el backend sirve también la página del overlay.
 
 ```bash
-# Terminal 1 — backend (conecta con TikTok, Gemini y la voz)
 npm start
-
-# Terminal 2 — servidor del overlay
-npm run overlay
 ```
 
 Deberías ver:
 
 ```text
-✅ WebSocket escuchando en ws://127.0.0.1:8080
+✅ Overlay y WebSocket escuchando en http://127.0.0.1:8080
+🖥️  Overlay para OBS: http://127.0.0.1:8080/?avatar=animado
 ✅ TikTok conectado
 🗣️ Voz: es-MX-JorgeNeural
-🔮 Overlay: http://127.0.0.1:5500/index.html?avatar=animado
 ```
 
-> ⚠️ El overlay **no funciona abriendo `index.html` con doble clic** (`file://`): usa módulos ES y el navegador los bloquea. Siempre sírvelo con `npm run overlay`.
+> ⚠️ El overlay **no funciona abriendo `index.html` con doble clic** (`file://`): usa módulos ES y el navegador los bloquea. Siempre ábrelo por la URL que imprime `npm start`.
+
+Para entregárselo a un tarotista **sin que abra una terminal**, se aloja en un servidor y recibe solo una URL: ver [docs/DEPLOY.md](docs/DEPLOY.md). Si defines `OVERLAY_KEY` en `.env` (genera una con `node scripts/make-key.js`), la URL exige `&key=...` también en local, igual que en el servidor.
 
 ### Configurar OBS
 
 1. **Fuentes → + → Navegador**.
-2. **URL:** `http://127.0.0.1:5500/index.html?avatar=animado`
+2. **URL:** `http://127.0.0.1:8080/?avatar=animado`
 3. **Ancho × Alto:** `1080 × 1920` (vertical, formato TikTok).
 4. ✅ Marca **"Controlar audio mediante OBS"**. Sin esto, **la voz no sale en el stream**.
 5. Después de actualizar el proyecto, usa **"Actualizar caché de la página actual"**.
@@ -174,7 +172,7 @@ flowchart LR
     RP -.fallback.-> G2[Gemini respaldo]
     W --> SS[SpeechService]
     SS --> TTS[EdgeTTSProvider]
-    W -->|ai_processing / ai_response + audio / ai_error| GW[RealtimeGateway<br/>ws://127.0.0.1:8080]
+    W -->|ai_processing / ai_response + audio / ai_error| GW[RealtimeGateway<br/>página + WebSocket, un puerto]
     GW --> OV[Overlay en OBS]
     OV --> IP[InteractionPresenter]
     IP --> TA[TarotAvatar<br/>máquina de estados]
@@ -315,8 +313,9 @@ Abre Chrome sin ventana y guarda una captura del overlay en OBS (1080 × 1920), 
 | No se escucha la voz en el stream | Marca **"Controlar audio mediante OBS"** en la fuente de navegador |
 | No se escucha en el navegador | Haz clic en la página (el navegador bloquea el audio hasta interactuar) |
 | `You exceeded your current quota` | Se agotó la capa gratis de Gemini. Espera, o usa otra clave o modelo |
-| Pantalla en blanco al abrir `index.html` | Se abrió con `file://`. Usa `npm run overlay` |
-| `El puerto 5500 está ocupado` | Otro programa (p. ej. Live Server de VS Code) lo usa. En PowerShell: `$env:OVERLAY_PORT=5600; npm run overlay`, y cambia el puerto en la URL de OBS |
+| Pantalla en blanco al abrir `index.html` | Se abrió con `file://`. Usa la URL que imprime `npm start` |
+| "Falta la clave del overlay" | Tienes `OVERLAY_KEY` en `.env`: agrega `&key=...` a la URL |
+| El puerto 8080 está ocupado | En PowerShell: `$env:GATEWAY_PORT=8090; npm start`, y cambia el puerto en la URL de OBS |
 | El mago no se anima | Falta `?avatar=animado` en la URL, o no hay WebGL (revisa la consola) |
 
 ---

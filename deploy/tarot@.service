@@ -1,0 +1,60 @@
+# Unidad plantilla: una instancia por cliente.
+#
+#   sudo systemctl enable --now tarot@beto
+#   sudo systemctl status tarot@beto
+#   sudo journalctl -u tarot@beto -f
+#
+# Lee /etc/tarot/beto.env (usuario de TikTok, claves de API, OVERLAY_KEY,
+# GATEWAY_PORT, contacto y promo). Ese archivo es 0600 root:root: systemd lo
+# lee como root y le inyecta las variables al proceso, que NO puede leerlo.
+#
+# DynamicUser: cada cliente corre con SU PROPIO usuario efímero. Si una
+# instancia se ve comprometida, no puede leer las claves de otra desde
+# /proc/<pid>/environ. El grupo `tarot` solo sirve para leer el código.
+
+[Unit]
+Description=Mago de tarot para TikTok LIVE (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+SupplementaryGroups=tarot
+WorkingDirectory=/opt/tarot/app
+
+# Su único lugar escribible: /var/lib/tarot-<cliente> (lo crea systemd).
+StateDirectory=tarot-%i
+StateDirectoryMode=0700
+
+EnvironmentFile=/etc/tarot/%i.env
+Environment=NODE_ENV=production
+Environment=SUPPORT_LEDGER_FILE=/var/lib/tarot-%i/support-ledger.json
+# 0 = reintentar para siempre: el cliente no siempre está en vivo.
+Environment=RECONNECT_MAX_ATTEMPTS=0
+
+ExecStart=/usr/bin/node src/app.js
+
+# Si TikTok tumba la conexión o el proceso muere, vuelve solo.
+Restart=always
+RestartSec=30
+
+# ---- Endurecimiento ----
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+SystemCallArchitectures=native
+ProtectProc=invisible
+MemoryMax=512M
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target

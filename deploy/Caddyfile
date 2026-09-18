@@ -1,0 +1,47 @@
+# Caddy: HTTPS automático (Let's Encrypt) y proxy a cada instancia.
+#
+# Un cliente = una ruta = un puerto. Cada cliente tiene su archivo en
+# /etc/caddy/clientes/<nombre>.caddy (lo escribe deploy/nuevo-cliente.sh):
+#
+#     handle_path /beto/* {
+#         reverse_proxy 127.0.0.1:8081
+#     }
+#
+# El overlay de Beto queda en: https://{$TAROT_DOMAIN}/beto/?avatar=animado&key=...
+# y su WebSocket en             wss://{$TAROT_DOMAIN}/beto/ws?key=...
+# (la página lo deduce sola; ver src/overlay/socketUrl.js).
+
+# Opciones globales. El log de ERRORES de Caddy (p. ej. "upstream caído"
+# mientras una instancia reinicia) incluye la URL completa, con `?key=`, y
+# va al journal. Se excluye: los errores de cada instancia están en su
+# propio `journalctl -u tarot@<cliente>`.
+{
+    log default {
+        exclude http.log.error
+    }
+}
+
+{$TAROT_DOMAIN} {
+
+    # Sin logs de acceso: la URL trae la clave del overlay y no debe quedar
+    # escrita en ningún archivo.
+    log {
+        output discard
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        -Server
+    }
+
+    # /beto → /beto/ (la página usa rutas relativas).
+    @sinBarra path_regexp sinBarra ^/([a-z0-9-]+)$
+    redir @sinBarra /{re.sinBarra.1}/ 308
+
+    import /etc/caddy/clientes/*.caddy
+
+    # Todo lo demás: nada que ver aquí.
+    handle {
+        respond 404
+    }
+}

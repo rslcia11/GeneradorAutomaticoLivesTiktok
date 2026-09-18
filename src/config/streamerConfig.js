@@ -37,7 +37,8 @@ export function readStreamerConfig(path, { read = readFileSync, warn = console.w
 const asBoolean = value =>
     typeof value === 'string' ? value.trim().toLowerCase() === 'true' : value === true;
 
-const asNumber = (value, fallback) => {
+/** Número positivo, o el valor por defecto (vacío, texto, 0 o negativo). */
+export const asNumber = (value, fallback) => {
     const number = Number(value);
 
     return Number.isFinite(number) && number > 0 ? number : fallback;

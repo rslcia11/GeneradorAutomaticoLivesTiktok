@@ -28,6 +28,8 @@ const SUITES = [
     'services',
     'gift-catalog',
     'streamer-config',
+    'gateway',
+    'retry',
     'hud',
     'stage',
     'interaction-presenter',

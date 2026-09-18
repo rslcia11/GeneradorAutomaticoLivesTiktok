@@ -5,12 +5,13 @@ import { Hud } from './hud.js';
 import { formatNumber } from './format.js';
 import { startDebugTools } from './debugTools.js';
 import { fitStage } from './stage.js';
+import { socketUrl } from './socketUrl.js';
 
 /* Primero el escenario: todo lo demás se mide dentro de él. */
 fitStage();
 
-/* IP directa: el backend solo escucha en 127.0.0.1 ("localhost" podría ir a ::1). */
-const WS_URL = 'ws://127.0.0.1:8080';
+/* Mismo servidor que sirvió la página, ruta `ws`, con la clave de la URL. */
+const WS_URL = socketUrl(window.location);
 
 const elements = {
     connectionStatus:

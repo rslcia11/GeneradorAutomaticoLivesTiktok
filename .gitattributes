@@ -1,0 +1,4 @@
+# Lo de deploy/ corre en Linux: con CRLF, bash y systemd fallan.
+*.sh            text eol=lf
+*.service       text eol=lf
+deploy/**       text eol=lf

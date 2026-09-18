@@ -5,13 +5,14 @@ import { Container, Sprite } from '../vendor/pixi-8.20.1.min.mjs';
  * no se crean ni destruyen objetos durante el LIVE.
  */
 
-function createAdditiveSprite(texture) {
+/* Sprite de luz: se suma a lo que hay detrás en vez de taparlo. */
+export function createAdditiveSprite(texture, { anchorY = 0.5, visible = false } = {}) {
 
     const sprite = new Sprite(texture);
 
-    sprite.anchor.set(0.5);
+    sprite.anchor.set(0.5, anchorY);
     sprite.blendMode = 'add';
-    sprite.visible = false;
+    sprite.visible = visible;
 
     return sprite;
 }

@@ -15,6 +15,7 @@ import { CardGlints, RingPool, SparkPool } from './effects.js';
 import { SpeechLevel } from './speech.js';
 import { FloatingCards } from './tarotCards.js';
 import { BASE_POSE, POSE_FILES, PoseBlender, selectPose } from './poses.js';
+import { currentStageScale, renderResolution } from '../stage.js';
 
 import {
     createGlowTexture,
@@ -166,6 +167,21 @@ export class AnimatedAvatar {
             this.celebrate(event.detail?.kind);
         };
 
+        /* El escenario cambió de escala: se redibuja a la nueva nitidez. */
+        this.handleStageScale = event => {
+            const renderer = this.app?.renderer;
+
+            if (!renderer || !this.host) {
+                return;
+            }
+
+            renderer.resize(
+                this.host.clientWidth,
+                this.host.clientHeight,
+                renderResolution(event.detail?.scale ?? 1, window.devicePixelRatio)
+            );
+        };
+
         this.handleVisibility = () => {
             /* ticker no existe hasta que termina app.init(). */
             if (document.hidden) {
@@ -203,22 +219,16 @@ export class AnimatedAvatar {
         const { ball } = ANCHORS;
         const tints = CELEBRATION_TINTS[kind] ?? CELEBRATION_TINTS.gift;
 
-        for (let i = 0; i < 46; i++) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = randomBetween(160, 420);
-
-            this.sparks.emit({
-                x: ball.x,
-                y: ball.y,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed - 60,
-                life: randomBetween(0.9, 1.6),
-                scale: randomBetween(0.3, 0.65),
-                tint: pick(tints),
-                drag: 2.2,
-                spin: randomBetween(-4, 4)
-            });
-        }
+        this.#burstSparks(ball.x, ball.y, {
+            count: 46,
+            speed: [160, 420],
+            lift: 60,
+            life: [0.9, 1.6],
+            scale: [0.3, 0.65],
+            tints,
+            drag: 2.2,
+            spin: 4
+        });
 
         for (const hand of ANCHORS.hands) {
             for (let i = 0; i < 12; i++) {
@@ -255,6 +265,7 @@ export class AnimatedAvatar {
         this.root.removeEventListener('avatarstatechange', this.handleStateChange);
         this.root.removeEventListener('avatarcelebrate', this.handleCelebrate);
         document.removeEventListener('visibilitychange', this.handleVisibility);
+        window.removeEventListener('stagescale', this.handleStageScale);
 
         this.root.classList.remove('avatar--animated');
         delete this.root.dataset.animatedAvatar;
@@ -300,6 +311,7 @@ export class AnimatedAvatar {
         this.root.addEventListener('avatarstatechange', this.handleStateChange);
         this.root.addEventListener('avatarcelebrate', this.handleCelebrate);
         document.addEventListener('visibilitychange', this.handleVisibility);
+        window.addEventListener('stagescale', this.handleStageScale);
 
         this.host = document.createElement('div');
         this.host.className = 'avatar-canvas';
@@ -311,12 +323,20 @@ export class AnimatedAvatar {
             backgroundAlpha: 0,
             antialias: true,
             autoDensity: true,
-            resolution: Math.min(window.devicePixelRatio || 1, 2),
+            /* El escenario puede verse ×2 (OBS 1080 × 1920): se dibuja a esa nitidez. */
+            resolution: renderResolution(currentStageScale(), window.devicePixelRatio),
             resizeTo: this.host,
             preference: 'webgl'
         });
 
         this.host.appendChild(this.app.canvas);
+
+        /*
+         * La escala pudo cambiar mientras arrancaba PixiJS (el aviso se
+         * pierde porque todavía no existe el renderer). Se vuelve a aplicar
+         * aquí: si no, en OBS el mago podría quedar borroso para siempre.
+         */
+        this.handleStageScale({ detail: { scale: currentStageScale() } });
 
         this.app.ticker.maxFPS = this.maxFPS;
 
@@ -441,7 +461,8 @@ export class AnimatedAvatar {
             glowTexture: glow,
             origin: ball,
             slots: ANCHORS.readingSlots,
-            onSparkle: (x, y, count) => this.#emitCardSparks(x, y, count)
+            onSparkle: (x, y, count) => this.#emitCardSparks(x, y, count),
+            onReveal: (x, y, tint) => this.#celebrateReveal(x, y, tint)
         });
 
         this.world.addChild(
@@ -453,6 +474,8 @@ export class AnimatedAvatar {
             ...this.eyeGlows,
             this.rings.container,
             this.glints.container,
+            /* Detrás de las cartas y delante de todo lo demás. */
+            this.readingCards.scrim,
             this.readingCards.container,
             this.sparks.container
         );
@@ -715,21 +738,61 @@ export class AnimatedAvatar {
         this.readingCards.update(dt, talk);
     }
 
+    /* El golpe visual del volteo: onda de choque + lluvia de chispas. */
+    #celebrateReveal(x, y, tint) {
+
+        /* Escalas relativas a RING_TEXTURE_RADIUS: ~27 px → ~170 px. */
+        this.rings.emit({
+            x,
+            y,
+            from: 0.25,
+            to: 1.6,
+            life: 0.75,
+            alpha: 0.85,
+            tint
+        });
+
+        this.#burstSparks(x, y, {
+            count: 26,
+            speed: [120, 360],
+            lift: 50,
+            life: [0.7, 1.3],
+            scale: [0.22, 0.5],
+            tints: [tint, COLORS.gold],
+            drag: 2.4,
+            spin: 5
+        });
+    }
+
     #emitCardSparks(x, y, count) {
+        this.#burstSparks(x, y, {
+            count,
+            speed: [40, 180],
+            lift: 40,
+            life: [0.6, 1.2],
+            scale: [0.2, 0.45],
+            tints: CELEBRATION_TINTS.gift,
+            drag: 2
+        });
+    }
+
+    /* Chispas que salen en todas direcciones desde un punto. */
+    #burstSparks(x, y, { count, speed, lift, life, scale, tints, drag, spin = 0 }) {
 
         for (let i = 0; i < count; i++) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = randomBetween(40, 180);
+            const velocity = randomBetween(...speed);
 
             this.sparks.emit({
                 x,
                 y,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed - 40,
-                life: randomBetween(0.6, 1.2),
-                scale: randomBetween(0.2, 0.45),
-                tint: pick(CELEBRATION_TINTS.gift),
-                drag: 2
+                vx: Math.cos(angle) * velocity,
+                vy: Math.sin(angle) * velocity - lift,
+                life: randomBetween(...life),
+                scale: randomBetween(...scale),
+                tint: pick(tints),
+                drag,
+                spin: randomBetween(-spin, spin)
             });
         }
     }

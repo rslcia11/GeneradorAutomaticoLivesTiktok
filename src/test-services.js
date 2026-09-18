@@ -82,7 +82,9 @@ test('resolveService entrega el mejor nivel que el apoyo alcance', () => {
     assert.equal(resolveService(catalog, 28).id, 'free');
     assert.equal(resolveService(catalog, 29).id, 'oraculo_dia');
     assert.equal(resolveService(catalog, 199).id, 'oraculo_dia');
-    assert.equal(resolveService(catalog, 200).id, 'lectura_3');
+    assert.equal(resolveService(catalog, 200).id, 'pregunta_rapida');
+    assert.equal(resolveService(catalog, 269).id, 'pregunta_rapida');
+    assert.equal(resolveService(catalog, 270).id, 'lectura_3');
     assert.equal(resolveService(catalog, 500).id, 'prioridad_3');
     assert.equal(resolveService(catalog, 5000).id, 'prioridad_5');
 });
@@ -90,7 +92,6 @@ test('resolveService entrega el mejor nivel que el apoyo alcance', () => {
 test('Regalar de más nunca da una respuesta peor (270 sigue dando lectura)', () => {
     const catalog = createCatalog();
 
-    /* "Pregunta Rápida" cuesta 270 pero vale menos que la lectura de 200. */
     const service = resolveService(catalog, 270);
 
     assert.equal(service.id, 'lectura_3');
@@ -247,8 +248,8 @@ test('Quien regala recibe SU lectura esa vez, no lecturas ilimitadas', () => {
 
     const paid = policy.evaluateComment(comment('u1'));
 
-    assert.equal(paid.service.id, 'lectura_3');
-    assert.equal(paid.service.cards, true);
+    assert.equal(paid.service.id, 'pregunta_rapida');
+    assert.equal(paid.service.cards, false);
     assert.equal(paid.remaining, 0);
 
     /* La siguiente pregunta ya es del nivel gratis. */
@@ -264,17 +265,17 @@ test('Quien regala recibe SU lectura esa vez, no lecturas ilimitadas', () => {
 test('Lo que sobra del regalo sirve para la siguiente pregunta', () => {
     const policy = new ServicePolicy();
 
-    policy.registerGift(gift('u1', 270));
+    policy.registerGift(gift('u1', 300));
 
     const first = policy.evaluateComment(comment('u1'));
 
     assert.equal(first.service.id, 'lectura_3');
-    assert.equal(first.remaining, 70);
+    assert.equal(first.remaining, 30);
 
     const second = policy.evaluateComment(comment('u1'));
 
-    assert.equal(second.service.id, 'oraculo_dia', 'con 70 aún alcanza el Oráculo');
-    assert.equal(second.remaining, 41);
+    assert.equal(second.service.id, 'oraculo_dia', 'con 30 aún alcanza el Oráculo');
+    assert.equal(second.remaining, 1);
 });
 
 test('El saldo sin usar caduca a las 24 h', () => {
@@ -342,8 +343,8 @@ test('Si la respuesta no se entrega, se devuelve lo cobrado', () => {
 
     policy.refund({ service: decision.service, event });
 
-    /* Puede volver a pedir su lectura. */
-    assert.equal(policy.evaluateComment(event).service.id, 'lectura_3');
+    /* Puede volver a pedir su servicio. */
+    assert.equal(policy.evaluateComment(event).service.id, 'pregunta_rapida');
 });
 
 test('También se devuelve la respuesta gratis del día', () => {

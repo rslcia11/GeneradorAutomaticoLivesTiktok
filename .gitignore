@@ -53,3 +53,9 @@ desktop.ini
 .piloto-voz/
 src/overlay/styles.backup.css
 src/overlay/styles.v1.css
+
+# Memoria local de apoyo (datos de espectadores)
+data/
+
+# Configuracion propia de cada streamer (telefono, frase)
+streamer.config.json

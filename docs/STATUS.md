@@ -1,10 +1,10 @@
 # Estado del proyecto — Generador Automático de Lives de TikTok
 
-_Última actualización: 2026-09-16. Actualizar al cerrar cualquier cambio relevante._
+_Última actualización: 2026-09-18. Actualizar al cerrar cualquier cambio relevante._
 
 ## Dónde estamos
 
-**MVP funcional y probado en un LIVE real.** El mago responde con IA y voz a comentarios y regalos, cambia de pose según la intención de la respuesta, muestra cartas de tarot en las lecturas y celebra follows y shares. Todo corre gratis en la PC del streamer con OBS.
+**MVP funcional y probado en un LIVE real.** El mago responde con IA y voz a comentarios y regalos, cambia de pose según la intención de la respuesta, muestra cartas de tarot en las lecturas y celebra follows y shares. Los regalos desbloquean servicios (respuesta gratis corta 1 vez cada 24 h; lecturas más largas y con cartas según lo regalado), con menú de servicios, tabla de últimos donantes y franja de contacto en pantalla. Todo corre gratis en la PC del streamer con OBS.
 
 El **cuello de botella actual** es la capa gratis de Gemini: en el LIVE de prueba se agotó en minutos y desde ahí casi todos los comentarios fallaron. Por eso la **etapa 3 (política de saturación)** es la prioridad.
 
@@ -12,7 +12,7 @@ El **cuello de botella actual** es la capa gratis de Gemini: en el LIVE de prueb
 
 | Etapa | Estado | Notas |
 |---|---|---|
-| 1. Efectos visuales (VFX) | ✅ Hecho | Aura, bola, chispas, anillos, destellos en cartas, celebraciones |
+| 1. Efectos visuales (VFX) | ✅ Hecho | Aura, bola, chispas, anillos, celebraciones. Cartas con volteo 3D real, haz de luz, onda de choque y brillo |
 | 2. Voz (TTS) | ✅ Hecho | Edge TTS `es-MX-JorgeNeural`, boca sincronizada con el volumen real |
 | 3. Política de saturación | ⏳ **Siguiente** | Ver "Próximos pasos". El LIVE real mostró que es urgente |
 | 4. Avatar avanzado | 🔄 MVP hecho | 6 poses por intención. Faltan poses extra y corregir defectos de arte |
@@ -25,9 +25,18 @@ El **cuello de botella actual** es la capa gratis de Gemini: en el LIVE de prueb
   - Gemini con fallback de modelo.
   - Salida JSON `{ intent, text }`.
 - **Overlay:**
+  - **Escenario fijo 9:16** (540 × 960, `src/overlay/stage.js`): todo se diseña sobre ese lienzo y se escala entero. Se ve idéntico en OBS (×2), en un celular y en un monitor horizontal. El canvas del mago se redibuja a la nitidez de la escala.
+  - Llamado "1 pregunta gratis al día" y aviso de contenido generado por IA (lo exige TikTok).
   - Presentación ordenada de interacciones.
   - Avatar CSS de respaldo.
-  - Avatar animado con PixiJS: rig de deformación, poses por intención, cartas flotantes y efectos.
+  - Avatar animado con PixiJS: rig de deformación, poses por intención y efectos.
+  - **Cartas de tarot 3D:** cada carta es una malla proyectada con perspectiva real. Salen girando de la bola, se barajan en un carrusel 3D, se revelan una a una (se acercan a cámara, voltean con fogonazo, haz de luz y onda de choque) y flotan con un brillo que las recorre. 14 arcanos dibujados por código (sin fuentes de símbolos que puedan faltar en otra PC). La coreografía (`cardChoreography.js`) y la proyección (`cardGeometry.js`) son matemática pura con 32 pruebas.
+  - **HUD:** menú "Desbloquea tu lectura" con los 5 servicios, "Últimos en apoyar" (5 donantes) y franja de contacto temporizada (apagada por defecto, `CONTACT_*` en `.env`).
+- **Economía de regalos:**
+  - Catálogo de servicios (`serviceCatalog.js`), saldo por espectador (`SupportLedger.js`) y reglas (`ServicePolicy.js`).
+  - Un regalo compra UNA lectura; el sobrante se acumula y vence a las 24 h. Sin regalos: 1 respuesta corta cada 24 h, y las siguientes preguntas no llegan a Gemini.
+  - Si la respuesta no se entrega (cola llena o IA caída), el saldo se devuelve.
+  - Se guarda en `./data/support-ledger.json` (escritura atómica).
 - **Voz:**
   - `EdgeTTSProvider` + `SpeechService`: si la voz falla, se responde en texto.
   - `SpeechPlayer` con Web Audio.
@@ -36,7 +45,7 @@ El **cuello de botella actual** es la capa gratis de Gemini: en el LIVE de prueb
   - El WebSocket solo acepta conexiones de `127.0.0.1`, con límite de tamaño de mensaje y control de memoria.
   - El texto que va a la voz se limpia y la configuración de voz se valida.
   - Historial de git limpio de claves.
-- **Herramientas:** `npm start`, `npm run overlay`, `npm test` (14 suites offline, 183 pruebas).
+- **Herramientas:** `npm start`, `npm run overlay`, `npm test` (20 suites offline, 288 pruebas).
 
 ## En progreso
 
@@ -51,7 +60,11 @@ El **cuello de botella actual** es la capa gratis de Gemini: en el LIVE de prueb
 2. **Edge TTS es un servicio no oficial de Microsoft.** Riesgo de términos de servicio y de disponibilidad para un producto con muchos usuarios. Alternativas evaluadas:
    - **Piper:** motor MIT y voz `es_MX-claude` Apache 2.0, offline e ilimitado, pero suena menos natural.
    - **Gemini TTS:** gratis solo 15 solicitudes/día.
-3. **Presupuesto de IA.**
+3. **Precios reales de los regalos.**
+   - "Prioridad 3 Cartas" y "Prioridad 5 Cartas" tienen precios provisionales (500 y 800 monedas).
+   - **No hace falta preguntarle al dueño:** en el próximo LIVE cada regalo deja una línea `💎 Apoyo → @usuario | regalo "X" xN = C (saldo: B) → desbloquea SERVICIO`. Con esos datos se ajusta `DEFAULT_SERVICES`.
+4. **Voz de viejo sabio.** Edge TTS no tiene voces de anciano en español; bajarle el tono a Jorge suena robótico (probado y descartado por el dueño). Falta elegir motor.
+5. **Presupuesto de IA.**
    - La capa gratis no alcanza para un LIVE activo.
    - **Decidir:** usar una clave de pago, varios modelos o claves, o reducir llamadas con la etapa 3.
 

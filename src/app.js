@@ -12,6 +12,7 @@ import { ResilientAIProvider } from './ai/ResilientAIProvider.js';
 import { EdgeTTSProvider } from './tts/EdgeTTSProvider.js';
 import { SpeechService } from './tts/SpeechService.js';
 import { applyServiceIntent } from './ai/intents.js';
+import { ThankYouTemplates } from './ai/ThankYouTemplates.js';
 import { ServicePolicy } from './rules/ServicePolicy.js';
 import { createLedgerSaver, loadLedger } from './rules/ledgerStore.js';
 import { decorateMenu, normalizeGifts } from './rules/giftCatalog.js';
@@ -383,6 +384,8 @@ function createAIEvent(
    QUEUE WORKER
    ============================================================ */
 
+const thankYouTemplates = new ThankYouTemplates();
+
 const worker = new QueueWorker({
     processor,
 
@@ -420,6 +423,13 @@ const worker = new QueueWorker({
         gateway.broadcast(
             processingEvent
         );
+
+        if (
+            event.type === 'gift' ||
+            event.type === 'subscription'
+        ) {
+            return thankYouTemplates.generate({ event });
+        }
 
         return aiService.generateResponse({
             event,

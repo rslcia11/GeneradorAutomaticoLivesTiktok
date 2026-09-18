@@ -21,7 +21,8 @@ const SUITES = [
     'queue-worker',
     'ai-service',
     'resilient-ai-provider',
-    'gemini-provider',         // ← añadir aquí
+    'gemini-provider',
+    'thank-you-templates',
     'intents',
     'services',
     'gift-catalog',

@@ -38,11 +38,26 @@ export const ANCHORS = Object.freeze({
         { x: 705, y: 805 }
     ],
 
+    /* Punta de la llama de cada vela (origen del humo). */
+    candles: [
+        { x: 912, y: 910 },  /* vela derecha */
+        { x: 185, y: 790 }   /* humo/incienso izquierdo */
+    ],
+
     /* Donde flotan las cartas durante una lectura de tarot. */
     readingSlots: [
         { x: 290, y: 1150, rotation: -0.2 },
         { x: 515, y: 1118, rotation: 0 },
         { x: 740, y: 1150, rotation: 0.2 }
+    ],
+
+    /* Las 5 cartas que se ven sobre la mesa en la imagen base. */
+    tableSlots: [
+        { x: 200, y: 1138, rotation: -0.32 },
+        { x: 335, y: 1172, rotation: -0.16 },
+        { x: 505, y: 1188, rotation:  0    },
+        { x: 645, y: 1172, rotation:  0.16 },
+        { x: 780, y: 1150, rotation:  0.32 }
     ]
 });
 

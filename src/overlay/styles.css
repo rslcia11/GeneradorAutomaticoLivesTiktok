@@ -2029,14 +2029,14 @@ body {
 
 .service-menu,
 .donor-board {
-    position: absolute;
+    position: relative;
     z-index: 45;
 
     /* Todo el panel escala con el ancho de la pantalla (em). */
-    font-size: 2.15cqw;
+    font-size: inherit;
 
-    width: 15em;
-    max-width: 34%;
+    width: 100%;
+    max-width: 100%;
 
     padding: 0.75em 0.55em 0.6em;
 
@@ -2086,14 +2086,31 @@ body {
 }
 
 .service-menu {
+    position: absolute;
     top: 11%;
     right: 3%;
+    width: 15em;
+    max-width: 34%;
+    font-size: 2.15cqw;
+}
+
+.right-panel {
+    position: absolute;
+    z-index: 45;
+    bottom: 10%;
+    right: 3%;
+
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.6em;
+
+    width: 15em;
+    max-width: 34%;
+    font-size: 2.15cqw;
 }
 
 .donor-board {
-    top: 11%;
-    left: 3%;
-
     animation-delay: 0.15s;
 }
 
@@ -2749,4 +2766,183 @@ body {
     .card-spotlight {
         transition: none;
     }
+}
+
+/* ============================================================
+   CONSULTA PRIVADA
+   ============================================================ */
+
+.private-consult {
+    position: absolute;
+    z-index: 45;
+    bottom: 27%;
+    left: 3%;
+
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+
+    font-size: 2.15cqw;
+    padding: 0.45em 0.85em 0.45em 0.55em;
+
+    border: 1px solid transparent;
+    border-radius: 2em;
+
+    background:
+        linear-gradient(160deg, rgba(58,24,98,0.88), rgba(12,5,28,0.92)) padding-box,
+        linear-gradient(135deg, #fff1c4, #d9a441, #8a5a1c, #f6d38a, #fff1c4) border-box;
+
+    box-shadow:
+        0 0 18px rgba(151,100,255,0.35),
+        0 6px 20px rgba(0,0,0,0.45);
+
+    color: var(--ivory);
+    white-space: nowrap;
+
+    animation: hud-panel-in 0.9s cubic-bezier(0.2, 0.9, 0.25, 1.2) both 0.3s;
+}
+
+.private-consult__icon {
+    font-size: 1.3em;
+    line-height: 1;
+    filter: drop-shadow(0 0 6px rgba(168,123,255,0.8));
+}
+
+.private-consult__text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.05em;
+    line-height: 1.2;
+}
+
+.private-consult__label {
+    font-family: "Cinzel", Georgia, serif;
+    font-size: 0.72em;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    color: #ffe39a;
+    opacity: 0.9;
+}
+
+.private-consult__phone {
+    font-size: 1.55em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #ffffff;
+    text-shadow: 0 0 14px rgba(200,160,255,0.8);
+}
+
+/* ============================================================
+   TRUCO MÁGICO DEL MAGO
+   ============================================================ */
+
+.magic-trick {
+    position: fixed;
+    left: 50%;
+    top: 38%;
+    transform: translateX(-50%) scale(0);
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2em;
+
+    font-family: "Cinzel", Georgia, serif;
+    font-size: clamp(2.5rem, 9cqw, 5rem);
+    text-align: center;
+    pointer-events: none;
+    z-index: 200;
+    white-space: nowrap;
+
+    filter: drop-shadow(0 0 18px rgba(200, 160, 255, 0.9));
+}
+
+.magic-trick__emoji {
+    display: block;
+    font-size: 1em;
+    line-height: 1;
+}
+
+.magic-trick__label {
+    display: block;
+    font-size: 0.3em;
+    letter-spacing: 0.12em;
+    color: #ffe39a;
+    text-shadow: 0 0 12px rgba(255, 200, 80, 0.8);
+}
+
+.magic-trick--in {
+    animation: magic-trick-appear 3.2s cubic-bezier(0.2, 0.9, 0.3, 1.1) forwards;
+}
+
+@keyframes magic-trick-appear {
+    0%   { opacity: 0; transform: translateX(-50%) scale(0.1) rotate(-20deg); }
+    18%  { opacity: 1; transform: translateX(-50%) scale(1.25) rotate(8deg); }
+    30%  { opacity: 1; transform: translateX(-50%) scale(1)    rotate(0deg); }
+    70%  { opacity: 1; transform: translateX(-50%) scale(1)    translateY(0); }
+    100% { opacity: 0; transform: translateX(-50%) scale(0.8)  translateY(-80px); }
+}
+
+
+/* ============================================================
+   ESFERA ARMILAR
+   Anillos dorados giratorios sobre la esfera del fondo.
+   Ajustar left / top si cambia tarot-master.png.
+   ============================================================ */
+
+.armillary {
+    position: absolute;
+    /* Posición centrada sobre la esfera del fondo (540 × 960). */
+    left: 67%;
+    top: 15%;
+    width: 62px;
+    height: 62px;
+    transform: translate(-50%, -50%);
+    z-index: 3;                /* encima del fondo, debajo del personaje */
+    perspective: 90px;         /* profundidad 3D para los anillos hijos */
+    pointer-events: none;
+}
+
+.armillary__ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 198, 55, 0.65);
+    box-shadow:
+        0 0 8px 2px  rgba(255, 188, 30, 0.38),
+        inset 0 0 5px 1px rgba(255, 200, 60, 0.18);
+    mix-blend-mode: screen;
+}
+
+/* Anillo 1: gira alrededor del eje Y (plano horizontal). */
+.armillary__ring--h {
+    animation: armill-h 9s linear infinite;
+}
+
+/* Anillo 2: gira alrededor del eje X (plano vertical). */
+.armillary__ring--v {
+    animation: armill-v 13s linear infinite;
+    animation-delay: -4.5s;
+}
+
+/* Anillo 3: inclinado 40° y gira alrededor del eje Y (diagonal). */
+.armillary__ring--d {
+    animation: armill-d 6.5s linear infinite;
+    animation-delay: -2s;
+    border-color: rgba(255, 215, 100, 0.5);
+}
+
+@keyframes armill-h {
+    from { transform: rotateY(0deg); }
+    to   { transform: rotateY(360deg); }
+}
+
+@keyframes armill-v {
+    from { transform: rotateX(0deg); }
+    to   { transform: rotateX(360deg); }
+}
+
+@keyframes armill-d {
+    from { transform: rotateZ(40deg) rotateY(0deg); }
+    to   { transform: rotateZ(40deg) rotateY(360deg); }
 }

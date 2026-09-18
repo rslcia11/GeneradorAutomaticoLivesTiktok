@@ -52,6 +52,18 @@
 
 
         <!-- =====================================================
+             ESFERA ARMILAR
+             Anillos giratorios 3D sobre la esfera del fondo.
+             ===================================================== -->
+
+        <div class="armillary" aria-hidden="true">
+            <span class="armillary__ring armillary__ring--h"></span>
+            <span class="armillary__ring armillary__ring--v"></span>
+            <span class="armillary__ring armillary__ring--d"></span>
+        </div>
+
+
+        <!-- =====================================================
              ATMÓSFERA / PARTÍCULAS
              ===================================================== -->
 
@@ -318,21 +330,34 @@
 
 
         <!-- =====================================================
-             ÚLTIMOS EN APOYAR
+             PANEL DERECHO: últimos en apoyar + consulta privada
              ===================================================== -->
 
-        <aside
-            id="donor-board"
-            class="donor-board"
-            hidden
-        >
-            <h2 class="donor-board__title">Últimos en apoyar</h2>
+        <div class="right-panel">
 
-            <ol
-                id="donor-board-list"
-                class="donor-board__list"
-            ></ol>
-        </aside>
+            <aside
+                id="donor-board"
+                class="donor-board"
+                hidden
+            >
+                <h2 class="donor-board__title">Últimos en apoyar</h2>
+
+                <ol
+                    id="donor-board-list"
+                    class="donor-board__list"
+                ></ol>
+            </aside>
+
+        </div>
+
+        <!-- Consulta privada — esquina inferior izquierda -->
+        <div class="private-consult">
+            <span class="private-consult__icon">🔮</span>
+            <div class="private-consult__text">
+                <span class="private-consult__label">Consulta privada</span>
+                <span class="private-consult__phone">0989840948</span>
+            </div>
+        </div>
 
 
         <!-- =====================================================

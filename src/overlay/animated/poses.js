@@ -11,19 +11,23 @@ import { smoothstep } from './warp.js';
 export const BASE_POSE = 'base';
 
 export const POSE_FILES = Object.freeze({
-    thinking: 'poses/thinking.webp',
-    tarot: 'poses/tarot.webp',
-    comment: 'poses/comment.webp',
-    'thanks-1': 'poses/thanks-1.webp',
-    'thanks-2': 'poses/thanks-2.webp',
-    invite: 'poses/invite.webp'
+    thinking:    'poses/thinking.webp',
+    tarot:       'poses/tarot.webp',
+    comment:     'poses/comment.webp',
+    'comment-2': 'poses/comment-2.webp',
+    'comment-3': 'poses/comment-3.webp',
+    'thanks-1':  'poses/thanks-1.webp',
+    'thanks-2':  'poses/thanks-2.webp',
+    invite:      'poses/invite.webp',
+    listening:   'poses/listening.webp',
+    react:       'poses/react.webp'
 });
 
 const INTENT_POSES = Object.freeze({
     tarot_reading: ['tarot'],
-    thanks: ['thanks-1', 'thanks-2'],
-    invite_share: ['invite'],
-    comment: ['comment']
+    thanks:        ['thanks-1', 'thanks-2'],
+    invite_share:  ['invite'],
+    comment:       ['comment', 'comment-2', 'comment-3']
 });
 
 /**
@@ -37,6 +41,14 @@ export function selectPose({ state, intent = null }, random = Math.random) {
 
     if (state === 'thinking') {
         return 'thinking';
+    }
+
+    if (state === 'listening') {
+        return 'listening';
+    }
+
+    if (state === 'reacting') {
+        return 'react';
     }
 
     if (state !== 'speaking') {

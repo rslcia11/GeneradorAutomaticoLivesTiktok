@@ -11,7 +11,7 @@ import {
 
 import { applyRig, createRig, weightRigValue } from './warp.js';
 import { ANCHORS, DEFORMERS, PINS, TEXTURE_SIZE } from './wizardRig.js';
-import { CardGlints, RingPool, SparkPool } from './effects.js';
+import { CardGlints, RingPool, SmokePool, SparkPool } from './effects.js';
 import { SpeechLevel } from './speech.js';
 import { FloatingCards } from './tarotCards.js';
 import { BASE_POSE, POSE_FILES, PoseBlender, selectPose } from './poses.js';
@@ -69,6 +69,28 @@ const MESH_VERTICES = Object.freeze({ x: 100, y: 164 });
 const BLINK_S = 0.16;
 const EAR_TWITCH_S = 0.22;
 const CELEBRATION_S = 1.6;
+
+const MAGIC_TRICKS = Object.freeze([
+    { emoji: '🕊️', label: 'Paloma',         tint: 0xffffff,  tints: [0xffffff, 0xd0e8ff] },
+    { emoji: '🐭', label: 'Ratón',           tint: 0xddccdd,  tints: [0xddccdd, 0xffffff] },
+    { emoji: '🐇', label: 'Conejo',          tint: 0xffeeff,  tints: [0xffeeff, 0xffffff] },
+    { emoji: '🦋', label: 'Mariposa',        tint: 0x8fe3ff,  tints: [0x8fe3ff, 0xff9ad5] },
+    { emoji: '🌸', label: 'Flor de cerezo',  tint: 0xff9ad5,  tints: [0xff9ad5, 0xffffff] },
+    { emoji: '⭐', label: 'Estrella',         tint: 0xffd98a,  tints: [0xffd98a, 0xffffff] },
+    { emoji: '🍄', label: 'Hongo mágico',    tint: 0xff7777,  tints: [0xff7777, 0xffd98a] },
+    { emoji: '🦉', label: 'Búho sabio',      tint: 0xc8a870,  tints: [0xc8a870, 0xffd98a] },
+    { emoji: '🐍', label: 'Serpiente',       tint: 0x88ff88,  tints: [0x88ff88, 0xffd98a] },
+    { emoji: '🔮', label: 'Orbe místico',    tint: 0xa87bff,  tints: [0xa87bff, 0x8fe3ff] },
+]);
+
+/* Fases del truco y su duración en segundos. */
+const TRICK_PHASES = Object.freeze({
+    raise:  0.7,   /* mano sube */
+    wave:   1.0,   /* arco + chispas */
+    burst:  0.25,  /* explosión */
+    reveal: 2.5,   /* emoji flota */
+    return: 0.8    /* mano baja */
+});
 
 /* Fundido entre poses y "rebote" del cuerpo al cambiar de pose. */
 const POSE_FADE_S = 0.22;
@@ -141,8 +163,36 @@ export class AnimatedAvatar {
             blinkPhase: -1,
             ear: randomBetween(4, 9),
             earPhase: -1,
-            glint: randomBetween(2, 5)
+            glint:      randomBetween(2, 5),
+            idleShuffle: randomBetween(20, 40),
+            smoke:      [0, 0]   /* timer independiente por vela */
         };
+
+        /* Truco mágico periódico. */
+        this.trick = {
+            timer:   randomBetween(8, 12),     /* segundos hasta el próximo truco */
+            phase:   null,
+            phaseT:  0,
+            current: null,                    /* MAGIC_TRICKS entry */
+            wand:    { dx: 0, dy: 0 },        /* sobreescritura de la mano derecha */
+            burstDone: false
+        };
+
+        /* Comportamiento de la cabeza del gato. */
+        this.catLook = {
+            angle:      0,
+            target:     0,
+            speed:      3,
+            holdTimer:  randomBetween(1, 3),
+            slowDownIn: 0   /* segundos hasta bajar la velocidad post-snap */
+        };
+
+        /* true mientras las cartas hacen el barajado idle (sin lectura activa). */
+        this.idleShuffleMode = false;
+
+        /* Timer para reiniciar las cartas de la mesa periódicamente. */
+        this.timers.tableRestart = randomBetween(55, 85);
+        this.tableCardsRestarting = false;
 
         this.rigValues = Object.fromEntries(
             DEFORMERS.map(deformer => [deformer.name, {}])
@@ -298,6 +348,9 @@ export class AnimatedAvatar {
         this.readingCards?.destroy();
         this.readingCards = null;
 
+        this.tableCards?.destroy();
+        this.tableCards = null;
+
         this.host?.remove();
         this.host = null;
 
@@ -426,6 +479,7 @@ export class AnimatedAvatar {
         this.ballGlow = this.#glowSprite(glow, ball, ball.radius * 3.4, COLORS.cyan);
 
         this.swirl = new Container();
+        this.swirl.sortableChildren = true;
         this.swirl.position.set(ball.x, ball.y);
 
         const swirlMask = new Graphics()
@@ -449,14 +503,37 @@ export class AnimatedAvatar {
             return arm;
         });
 
+        /* Orbes que orbitan dentro de la bola, enmascarados al círculo. */
+        const ORB_DEFS = [
+            { r: 0.52, speed:  0.38, phase: 0,    tint: COLORS.violet, px: 66 },
+            { r: 0.33, speed: -0.57, phase: 2.1,  tint: COLORS.cyan,   px: 44 },
+            { r: 0.66, speed:  0.24, phase: 4.2,  tint: COLORS.gold,   px: 54 },
+            { r: 0.44, speed: -0.35, phase: 1.05, tint: COLORS.violet, px: 38 }
+        ];
+
+        this.ballOrbs = ORB_DEFS.map(def => {
+            const sprite = new Sprite(glow);
+
+            sprite.anchor.set(0.5);
+            sprite.blendMode = 'add';
+            sprite.tint = def.tint;
+            sprite.width  = def.px;
+            sprite.height = def.px;
+
+            this.swirl.addChild(sprite);
+
+            return { sprite, r: def.r * ball.radius, speed: def.speed, phase: def.phase };
+        });
+
         this.ballCore = this.#glowSprite(spark, ball, 150, 0xffffff);
 
         this.eyeGlows = ANCHORS.eyes.map(eye =>
             this.#glowSprite(glow, eye, 46, COLORS.violet)
         );
 
-        this.rings = new RingPool({ texture: ring });
+        this.rings  = new RingPool({ texture: ring });
         this.sparks = new SparkPool({ texture: spark });
+        this.smoke  = new SmokePool({ texture: glow });
         this.glints = new CardGlints({ texture: spark, positions: ANCHORS.cards });
 
         this.readingCards = new FloatingCards({
@@ -467,16 +544,28 @@ export class AnimatedAvatar {
             onReveal: (x, y, tint, name) => this.#celebrateReveal(x, y, tint, name)
         });
 
+        /* Las 5 cartas de la mesa — viven siempre en hover/shuffle. */
+        this.tableCards = new FloatingCards({
+            glowTexture: glow,
+            origin: ball,
+            slots: ANCHORS.tableSlots,
+            onSparkle: (x, y, count) => this.#emitCardSparks(x, y, count),
+            onReveal: () => {}
+        });
+
         this.world.addChild(
             this.aura,
             this.figure,
+            this.smoke.container,
             this.ballGlow,
             this.swirl,
             this.ballCore,
             ...this.eyeGlows,
             this.rings.container,
             this.glints.container,
-            /* Detrás de las cartas y delante de todo lo demás. */
+            /* Cartas de mesa (detrás del scrim de lectura). */
+            this.tableCards.container,
+            /* Scrim y cartas de lectura encima. */
             this.readingCards.scrim,
             this.readingCards.container,
             this.sparks.container
@@ -542,12 +631,9 @@ export class AnimatedAvatar {
 
         this.#updatePoses(dt);
 
-        /* Las cartas SOLO se mueven en lecturas de tarot. */
-        if (speaking && this.intent === 'tarot_reading') {
-            this.readingCards.start();
-        } else {
-            this.readingCards.stop();
-        }
+        this.#updateReadingCards(dt, speaking);
+        this.#updateTableCards(dt);
+        this.#updateMagicTrick(dt);
 
         this.celebration = Math.max(0, this.celebration - dt / CELEBRATION_S);
 
@@ -644,10 +730,11 @@ export class AnimatedAvatar {
         r.handLeft.dx = Math.sin(t * 1.3) * 2.5 * v.hands;
         r.handLeft.dy = Math.cos(t * 1.7) * 2.5 * v.hands - lift;
 
-        r.handRight.dx = Math.sin(t * 1.3 + 2.1) * 2.5 * v.hands;
-        r.handRight.dy = Math.cos(t * 1.55 + 1.2) * 2.5 * v.hands - lift;
+        r.handRight.dx = Math.sin(t * 1.3 + 2.1) * 2.5 * v.hands + this.trick.wand.dx;
+        r.handRight.dy = Math.cos(t * 1.55 + 1.2) * 2.5 * v.hands - lift + this.trick.wand.dy;
 
-        r.catHead.angle = Math.sin(t * 0.37) * 0.02 + Math.sin(t * 1.9) * 0.004;
+        this.#updateCatLook(dt);
+        r.catHead.angle = this.catLook.angle + Math.sin(t * 0.37) * 0.01 + Math.sin(t * 1.9) * 0.004;
         r.catEar.angle = this.#updateTwitch(dt, 'ear', EAR_TWITCH_S, 4, 11) * -0.22;
 
         r.flame.sx = 1 + Math.sin(t * 23) * 0.04 + Math.sin(t * 37) * 0.03;
@@ -664,6 +751,78 @@ export class AnimatedAvatar {
 
         applyRig(this.rig, this.positionBuffer.data, r);
         this.positionBuffer.update();
+    }
+
+    #updateReadingCards(dt, speaking) {
+
+        const isReading = speaking && this.intent === 'tarot_reading';
+
+        if (isReading) {
+            /* Lectura activa: comportamiento normal, descarta idle. */
+            this.idleShuffleMode = false;
+            this.timers.idleShuffle = randomBetween(25, 45);
+            this.readingCards.start();
+            return;
+        }
+
+        if (this.idleShuffleMode) {
+            /* En barajado idle: parar antes de que llegue a 'reveal'. */
+            if (this.readingCards.phase === 'reveal' || this.readingCards.phase === 'hover') {
+                this.readingCards.stop();
+            }
+
+            if (!this.readingCards.active) {
+                /* Terminó (phase === 'hidden'): programar el siguiente. */
+                this.idleShuffleMode = false;
+                this.timers.idleShuffle = randomBetween(25, 45);
+            }
+        } else {
+            /* Cuenta regresiva hasta el próximo barajado. */
+            this.timers.idleShuffle -= dt;
+
+            if (this.timers.idleShuffle <= 0) {
+                this.idleShuffleMode = true;
+                this.readingCards.start();
+            }
+        }
+    }
+
+    #updateTableCards(dt) {
+
+        if (!this.tableCards) return;
+
+        const phase = this.tableCards.phase;
+
+        if (this.tableCardsRestarting) {
+            /* Esperando el dismiss para volver a arrancar. */
+            if (phase === 'hidden') {
+                this.tableCardsRestarting = false;
+                this.timers.tableRestart = randomBetween(55, 85);
+                this.tableCards.start();
+            }
+            return;
+        }
+
+        if (phase === 'hidden') {
+            /* Primera vez o tras un dismiss no solicitado: arrancar. */
+            this.tableCards.start();
+            return;
+        }
+
+        /* No revelar: las cartas de mesa siempre quedan boca abajo. */
+        if (phase === 'reveal') {
+            this.tableCards.stop();
+            return;
+        }
+
+        if (phase === 'hover') {
+            this.timers.tableRestart -= dt;
+
+            if (this.timers.tableRestart <= 0) {
+                this.tableCardsRestarting = true;
+                this.tableCards.stop();
+            }
+        }
     }
 
     #updateEffects(dt, target, talk, cheer) {
@@ -686,6 +845,25 @@ export class AnimatedAvatar {
         this.swirlArms[0].rotation += dt * v.swirl;
         this.swirlArms[1].rotation -= dt * v.swirl * 0.7;
         this.swirl.alpha = Math.min(1, 0.25 + v.glow * 0.55 + cheer * 0.3);
+
+        /* Orbes orbitales dentro de la bola.
+         * Perspectiva simple: eje X plano, eje Y aplastado (×0.45).
+         * depth = sin(ángulo): +1 = frente (más brillante), -1 = detrás. */
+        for (const orb of this.ballOrbs) {
+            const angle = t * orb.speed * (1 + v.swirl * 0.35) + orb.phase;
+            const depth = Math.sin(angle);                 /* -1..+1 */
+
+            orb.sprite.x = Math.cos(angle) * orb.r * 0.75;
+            orb.sprite.y = depth * orb.r * 0.42;
+
+            /* Los de detrás quedan más opacos/pequeños. */
+            orb.sprite.alpha = v.glow * (0.22 + 0.55 * (depth * 0.5 + 0.5)) + cheer * 0.2;
+            const sz = 0.85 + 0.18 * (depth * 0.5 + 0.5);
+            orb.sprite.scale.set(sz);
+
+            /* zIndex: los de detrás se dibujan primero. */
+            orb.sprite.zIndex = depth;
+        }
 
         this.ballCore.alpha = Math.min(1, 0.3 + v.glow * 0.5 + talk * 0.3);
         this.ballCore.rotation += dt * 0.4;
@@ -734,9 +912,33 @@ export class AnimatedAvatar {
             this.glints.trigger(Math.floor(Math.random() * this.glints.count));
         }
 
+        /* Humo de las velas. */
+        ANCHORS.candles.forEach((candle, i) => {
+
+            this.timers.smoke[i] -= dt;
+
+            if (this.timers.smoke[i] <= 0) {
+                this.timers.smoke[i] = randomBetween(0.35, 0.7);
+
+                this.smoke.emit({
+                    x:          candle.x + randomBetween(-4, 4),
+                    y:          candle.y,
+                    vx:         randomBetween(-12, 12),
+                    vy:         randomBetween(-38, -22),
+                    life:       randomBetween(2.5, 4.2),
+                    scaleStart: randomBetween(0.12, 0.22),
+                    scaleEnd:   randomBetween(0.55, 0.85),
+                    alpha:      randomBetween(0.14, 0.24),
+                    tint:       0xc8c8d8
+                });
+            }
+        });
+
+        this.smoke.update(dt);
         this.sparks.update(dt);
         this.rings.update(dt);
         this.glints.update(dt);
+        this.tableCards?.update(dt, talk);
         this.readingCards.update(dt, talk);
     }
 
@@ -818,6 +1020,166 @@ export class AnimatedAvatar {
             tint: pick(BALL_SPARK_TINTS),
             drag: 0.2
         });
+    }
+
+    #updateMagicTrick(dt) {
+
+        const tr = this.trick;
+
+        if (!tr.phase) {
+            /* Cuenta regresiva; no interrumpir lecturas activas. */
+            if (this.readingCards.active) return;
+
+            tr.timer -= dt;
+
+            if (tr.timer > 0) return;
+
+            /* ¡Truco! */
+            tr.current   = pick(MAGIC_TRICKS);
+            tr.phase     = 'raise';
+            tr.phaseT    = 0;
+            tr.burstDone = false;
+            tr.wand      = { dx: 0, dy: 0 };
+            return;
+        }
+
+        tr.phaseT += dt;
+
+        const dur = TRICK_PHASES[tr.phase];
+        const p   = Math.min(1, tr.phaseT / dur);
+        const ease = t => 1 - (1 - t) ** 3;
+
+        switch (tr.phase) {
+
+            case 'raise':
+                /* Mano sube suavemente. */
+                tr.wand.dy = -ease(p) * 90;
+                tr.wand.dx =  ease(p) * 18;
+                break;
+
+            case 'wave':
+                /* Arco de barita: dx oscila, dy se mantiene arriba. */
+                tr.wand.dy = -90 + Math.sin(p * Math.PI) * -35;
+                tr.wand.dx =  18 + Math.sin(p * Math.PI * 3) * 30;
+
+                /* Chispas durante el arco. */
+                if (Math.random() < dt * 14) {
+                    const { hands } = ANCHORS;
+                    this.#burstSparks(
+                        hands[1].x + tr.wand.dx,
+                        hands[1].y + tr.wand.dy,
+                        { count: 3, speed: [60, 180], lift: 30,
+                          life: [0.4, 0.9], scale: [0.18, 0.38],
+                          tints: tr.current.tints, drag: 2.5, spin: 4 }
+                    );
+                }
+                break;
+
+            case 'burst':
+                if (!tr.burstDone) {
+                    tr.burstDone = true;
+                    const { hands } = ANCHORS;
+                    const bx = hands[1].x + tr.wand.dx;
+                    const by = hands[1].y + tr.wand.dy - 20;
+
+                    this.#burstSparks(bx, by, {
+                        count: 55, speed: [140, 400], lift: 70,
+                        life: [0.8, 1.6], scale: [0.28, 0.65],
+                        tints: tr.current.tints, drag: 2.2, spin: 5
+                    });
+
+                    this.rings.emit({ x: bx, y: by,
+                        from: 0.2, to: 2.8, life: 1.0, alpha: 0.9,
+                        tint: tr.current.tint });
+
+                    this.rings.emit({ x: bx, y: by,
+                        from: 0.1, to: 1.6, life: 0.6, alpha: 0.7,
+                        tint: 0xffffff });
+
+                    this.#showTrickEmoji(tr.current);
+                }
+                break;
+
+            case 'reveal':
+                /* Mano baja gradualmente. */
+                tr.wand.dy = -90 * (1 - ease(p * 0.6));
+                tr.wand.dx =  18 * (1 - ease(p * 0.6));
+                break;
+
+            case 'return':
+                /* Suavizado final a cero. */
+                tr.wand.dy = tr.wand.dy * (1 - dt * 6);
+                tr.wand.dx = tr.wand.dx * (1 - dt * 6);
+                break;
+        }
+
+        /* Avanzar fase. */
+        if (p >= 1) {
+            const phases = Object.keys(TRICK_PHASES);
+            const next   = phases[phases.indexOf(tr.phase) + 1] ?? null;
+
+            tr.phase  = next;
+            tr.phaseT = 0;
+
+            if (!next) {
+                tr.wand  = { dx: 0, dy: 0 };
+                tr.timer = randomBetween(50, 80);
+            }
+        }
+    }
+
+    #showTrickEmoji(trick) {
+
+        const el = document.createElement('div');
+
+        el.className = 'magic-trick';
+        el.innerHTML =
+            `<span class="magic-trick__emoji">${trick.emoji}</span>` +
+            `<span class="magic-trick__label">${trick.label}</span>`;
+
+        document.body.appendChild(el);
+
+        /* Forzar reflow para que la animación arranque. */
+        el.getBoundingClientRect();
+        el.classList.add('magic-trick--in');
+
+        setTimeout(() => el.remove(), 3400);
+    }
+
+    #updateCatLook(dt) {
+
+        const look = this.catLook;
+
+        /* Bajar velocidad post-snap cuando toca. */
+        if (look.slowDownIn > 0) {
+            look.slowDownIn -= dt;
+
+            if (look.slowDownIn <= 0) {
+                look.speed = randomBetween(1.5, 3);
+            }
+        }
+
+        /* Suavizado exponencial hacia el objetivo. */
+        look.angle += (look.target - look.angle) * Math.min(1, dt * look.speed);
+
+        look.holdTimer -= dt;
+
+        if (look.holdTimer > 0) return;
+
+        /* Giro brusco (double-take) 25% del tiempo. */
+        const snap = Math.random() < 0.25;
+
+        if (snap) {
+            look.target     = Math.random() < 0.5 ? randomBetween(-0.28, -0.18) : randomBetween(0.18, 0.28);
+            look.speed      = randomBetween(8, 14);
+            look.holdTimer  = randomBetween(0.6, 1.8);
+            look.slowDownIn = look.holdTimer + 0.1;
+        } else {
+            look.target    = randomBetween(-0.16, 0.16);
+            look.speed     = randomBetween(2, 4);
+            look.holdTimer = randomBetween(2, 6);
+            look.slowDownIn = 0;
+        }
     }
 
     /*

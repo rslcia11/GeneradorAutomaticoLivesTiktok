@@ -137,6 +137,77 @@ export class RingPool {
     }
 }
 
+/* Partículas de humo que suben y se expanden. */
+export class SmokePool {
+
+    constructor({ texture, size = 60 }) {
+
+        this.container = new Container();
+        this.particles = [];
+        this.cursor    = 0;
+
+        for (let i = 0; i < size; i++) {
+            const sprite = new Sprite(texture);
+
+            sprite.anchor.set(0.5);
+            sprite.blendMode = 'normal';
+            sprite.visible   = false;
+
+            this.container.addChild(sprite);
+            this.particles.push({ sprite, life: 0 });
+        }
+    }
+
+    emit({ x, y, vx = 0, vy = -30, life = 3, scaleStart = 0.18, scaleEnd = 0.65, alpha = 0.18, tint = 0xbbbbbb }) {
+
+        const p = this.particles[this.cursor];
+
+        this.cursor = (this.cursor + 1) % this.particles.length;
+
+        Object.assign(p, { life, maxLife: life, vx, vy, scaleStart, scaleEnd, alpha, drag: 0.6 });
+
+        p.sprite.position.set(x, y);
+        p.sprite.tint    = tint;
+        p.sprite.visible = true;
+    }
+
+    update(dt) {
+
+        for (const p of this.particles) {
+
+            if (p.life <= 0) continue;
+
+            p.life -= dt;
+
+            if (p.life <= 0) {
+                p.sprite.visible = false;
+                continue;
+            }
+
+            /* Arrastre aéreo: la columna de humo frena y se ensancha. */
+            const damping = Math.max(0, 1 - p.drag * dt);
+
+            p.vx *= damping;
+            p.vy *= damping;
+
+            p.sprite.x += p.vx * dt;
+            p.sprite.y += p.vy * dt;
+
+            const progress = 1 - p.life / p.maxLife;
+            const scale    = p.scaleStart + (p.scaleEnd - p.scaleStart) * progress;
+
+            p.sprite.scale.set(scale);
+
+            /* Aparece suave, desaparece suave. */
+            const fade = progress < 0.15
+                ? progress / 0.15
+                : 1 - ((progress - 0.15) / 0.85) ** 1.4;
+
+            p.sprite.alpha = p.alpha * Math.max(0, fade);
+        }
+    }
+}
+
 /* Destellos sobre las cartas del tarot. */
 export class CardGlints {
 

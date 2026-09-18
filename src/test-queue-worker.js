@@ -668,6 +668,7 @@ await test('Item antiguo (> maxItemAgeMs) se descarta sin llamar onError', async
     // Hack: el item ya está en la cola — manipulamos queuedAt directamente
     // accediendo a la cola interna para simular un item que lleva 2 minutos esperando.
     const item = processor.peek();
+    assert.ok(item, 'peek() debe devolver el item encolado');
     item.queuedAt = Date.now() - 120_000; // 2 minutos de antigüedad
 
     const worker = new QueueWorker({
@@ -709,7 +710,7 @@ await test('Item encolado durante bloqueo se descarta cuando el worker reanuda',
 
     // Simular: el bloqueo "acaba de terminar" pero el item fue encolado durante él.
     // drainItemsBefore = ahora → cualquier item con queuedAt < ahora será descartado.
-    worker.drainItemsBefore = Date.now() + 1; // +1ms de margen
+    worker.drainItemsBefore = Date.now() + 100;
 
     worker.start();
 

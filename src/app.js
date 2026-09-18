@@ -11,6 +11,14 @@ import { GeminiProvider } from './ai/GeminiProvider.js';
 import { ResilientAIProvider } from './ai/ResilientAIProvider.js';
 import { EdgeTTSProvider } from './tts/EdgeTTSProvider.js';
 import { SpeechService } from './tts/SpeechService.js';
+import { applyServiceIntent } from './ai/intents.js';
+import { ServicePolicy } from './rules/ServicePolicy.js';
+import { createLedgerSaver, loadLedger } from './rules/ledgerStore.js';
+import { decorateMenu, normalizeGifts } from './rules/giftCatalog.js';
+import { readStreamerConfig, resolveContact } from './config/streamerConfig.js';
+
+/* Preferencias del streamer (frase y teléfono). Las claves siguen en .env. */
+const streamer = readStreamerConfig('./streamer.config.json');
 
 const config = {
     tiktokUsername: 'tarotdebeto.co',
@@ -45,7 +53,23 @@ const config = {
          * menor que thinkingTimeoutMs del overlay (50 s).
          */
         timeoutMs: 6000
-    }
+    },
+
+    /* Cuántos donantes se muestran en la tabla del overlay. */
+    recentDonorsShown: 5,
+
+    /*
+     * Franja de contacto del overlay (streamer.config.json, o .env).
+     * Apagada por defecto: mostrar datos de contacto en un LIVE es
+     * decisión (y riesgo) de cada streamer. Aparece unos segundos,
+     * cada cierto tiempo.
+     */
+    contact: resolveContact(streamer, process.env),
+
+    /* Memoria de apoyo de 24 h (quién regaló y quién ya usó su gratis). */
+    supportLedgerFile:
+        process.env.SUPPORT_LEDGER_FILE?.trim() ||
+        './data/support-ledger.json'
 };
 
 
@@ -73,8 +97,109 @@ if (!geminiApiKey) {
    REALTIME / OVERLAY
    ============================================================ */
 
+/* Devuelve el saldo (o la respuesta gratis) de una interacción no entregada. */
+function refund(decision, event, reason) {
+
+    if (!decision?.metadata?.service) {
+        return;
+    }
+
+    servicePolicy.refund({
+        service: decision.metadata.service,
+        event
+    });
+
+    console.warn(
+        `↩️ Devuelto a @${event?.user?.username}: ${decision.metadata.service.label} (${reason})`
+    );
+}
+
+/* Últimos regalos recibidos, para la tabla del overlay. */
+const recentDonors = [];
+
+function rememberDonor(event, coins, balance) {
+
+    recentDonors.unshift({
+        username: event.user?.username ?? null,
+        nickname: event.user?.nickname ?? null,
+        gift: event.gift?.name ?? 'regalo',
+        image: event.gift?.image ?? null,
+        coins,
+        balance,
+        at: Date.now()
+    });
+
+    recentDonors.length = Math.min(recentDonors.length, config.recentDonorsShown);
+}
+
+/* Sobre estándar de los eventos que genera la app (no vienen de TikTok). */
+function systemEvent(type, data) {
+    return {
+        platform: 'system',
+        type,
+        timestamp: Date.now(),
+        ...data
+    };
+}
+
+function donorBoardEvent() {
+    return systemEvent('donor_board', { donors: recentDonors });
+}
+
+/* Regalos reales de la sala (se piden al conectar). Vacío = menú con íconos. */
+let roomGifts = [];
+
+function menuEvent() {
+    return systemEvent('service_menu', {
+        services: decorateMenu(
+            servicePolicy.menu(),
+            roomGifts,
+            coins => servicePolicy.unlocks(coins)
+        )
+    });
+}
+
+/*
+ * No bloquea el arranque: si TikTok no entrega la lista, el menú sigue
+ * funcionando con íconos y se registra el motivo.
+ */
+async function loadRoomGifts() {
+
+    try {
+        roomGifts = normalizeGifts(await tiktok.fetchGifts());
+
+        if (roomGifts.length === 0) {
+            console.warn('⚠️ TikTok no entregó regalos de la sala; el menú usa íconos');
+            return;
+        }
+
+        const menu = menuEvent();
+
+        gateway.broadcast(menu);
+
+        for (const service of menu.services) {
+            console.log(
+                `🎁 ${service.label} (${service.coins}) ← ` +
+                (service.tiktokGift
+                    ? `regalo "${service.tiktokGift.name}" (${service.tiktokGift.coins})`
+                    : 'ningún regalo de la sala da justo este servicio (se muestra ícono)')
+            );
+        }
+
+    } catch (error) {
+        console.warn(`⚠️ No se pudo leer la lista de regalos (${error.message}); el menú usa íconos`);
+    }
+}
+
 const gateway = new RealtimeGateway({
-    port: config.websocketPort
+    port: config.websocketPort,
+
+    /* El overlay recibe el menú y la tabla apenas se conecta. */
+    welcome: () => [
+        menuEvent(),
+        donorBoardEvent(),
+        systemEvent('contact_banner', { contact: config.contact })
+    ]
 });
 
 
@@ -82,9 +207,30 @@ const gateway = new RealtimeGateway({
    REGLAS Y COLA
    ============================================================ */
 
+/*
+ * Servicios: quien no apoya recibe una respuesta corta cada 24 h;
+ * quien apoya recibe lecturas según lo que haya regalado.
+ */
+const supportLedger =
+    await loadLedger(config.supportLedgerFile);
+
+const ledgerSaver = createLedgerSaver({
+    path: config.supportLedgerFile,
+    ledger: supportLedger
+});
+
+const servicePolicy = new ServicePolicy({
+    ledger: supportLedger,
+
+    /* Todo cambio de saldo o de gratis se guarda (de forma diferida). */
+    onChange: () => ledgerSaver.schedule()
+});
+
 const ruleEngine = new EventRuleEngine({
     minGiftDiamondsForPriority:
-        config.minGiftDiamondsForPriority
+        config.minGiftDiamondsForPriority,
+
+    policy: servicePolicy
 });
 
 const queue = new PriorityQueue({
@@ -278,6 +424,9 @@ const worker = new QueueWorker({
         return aiService.generateResponse({
             event,
 
+            /* Define el largo de la respuesta (gratis, lectura, etc.). */
+            service: decision.metadata?.service ?? null,
+
             context: {
                 platform: 'tiktok'
             }
@@ -334,11 +483,15 @@ const worker = new QueueWorker({
                     audio,
 
                     /*
-                     * Tipo de respuesta: el overlay elige la
-                     * animación (p. ej. cartas solo en lecturas).
+                     * Tipo de respuesta: el overlay elige la animación.
+                     * Lo pagado manda: quien compró una lectura VE las
+                     * cartas, y una respuesta gratis nunca las saca.
                      */
                     intent:
-                        result.intent,
+                        applyServiceIntent(
+                            result.intent,
+                            queueItem.decision.metadata?.service
+                        ),
 
                     ai: {
                         provider:
@@ -386,6 +539,11 @@ const worker = new QueueWorker({
             `${error.code ?? 'AI_ERROR'}: ${error.message}`
         );
 
+        /* La IA no respondió: se devuelve lo que se le cobró. */
+        if (sourceEvent.type === 'comment') {
+            refund(queueItem.decision, sourceEvent, 'la IA falló');
+        }
+
         const aiErrorEvent =
             createAIEvent(
                 'ai_error',
@@ -425,6 +583,27 @@ tiktok.onEvent(event => {
         `📥 TikTok → ${event.type}`
     );
 
+    /*
+     * El apoyo se registra ANTES de aplicar las reglas: el regalo
+     * recién llegado ya cuenta para el servicio que desbloquea.
+     */
+    if (event.type === 'gift') {
+        /* Un combo en curso no suma: solo cuenta el evento final. */
+        const { coins, counted, balance, service } =
+            servicePolicy.registerGift(event);
+
+        if (counted) {
+            rememberDonor(event, coins, balance);
+            gateway.broadcast(donorBoardEvent());
+
+            console.log(
+                `💎 Apoyo → @${event.user?.username} | ` +
+                `regalo "${event.gift?.name}" x${event.gift?.repeatCount ?? 1} = ${coins} ` +
+                `(saldo: ${balance}) → desbloquea ${service.label}`
+            );
+        }
+    }
+
     const result =
         processor.process(event);
 
@@ -448,6 +627,21 @@ tiktok.onEvent(event => {
     if (result.dropped) {
         console.warn(
             '⚠️ Evento descartado por capacidad de cola'
+        );
+    }
+
+    /*
+     * Si el evento se cobró pero no entró en la cola, se devuelve:
+     * nadie paga por una respuesta que no va a recibir.
+     */
+    if (!result.queued && result.decision.reason === 'valid_comment') {
+        refund(result.decision, event, 'no entró en la cola');
+    }
+
+    if (result.decision.reason === 'free_quota_used') {
+        console.log(
+            `🚫 @${event.user?.username} ya usó su respuesta gratis ` +
+            `(faltan ${result.decision.metadata?.hoursUntilFree?.toFixed(1) ?? '?'} h)`
         );
     }
 });
@@ -479,6 +673,8 @@ async function start() {
          * de confirmar la conexión con TikTok.
          */
         worker.start();
+
+        void loadRoomGifts();
 
         console.log(
             '✅ TikTok conectado'
@@ -512,6 +708,20 @@ async function start() {
             speechService
                 ? `🗣️ Voz: ${config.tts.voice}`
                 : '🔇 Voz desactivada (TTS_ENABLED=false)'
+        );
+
+        console.log(
+            `🎁 Servicios: ${servicePolicy.menu().map(s => `${s.label} (${s.coins})`).join(' · ')}`
+        );
+
+        console.log(
+            `🆓 Gratis: 1 respuesta cada ${servicePolicy.free.freeEveryHours} h por persona`
+        );
+
+        console.log(
+            config.contact.enabled && config.contact.text
+                ? `📞 Contacto: visible ${config.contact.visibleSeconds}s cada ${config.contact.everyMinutes} min`
+                : '📵 Franja de contacto desactivada (streamer.config.json → contact.enabled)'
         );
 
         console.log(
@@ -615,6 +825,14 @@ async function shutdown() {
                 speechService.getStats()
             );
         }
+
+        console.log(
+            '📊 Servicios:',
+            servicePolicy.getStats()
+        );
+
+        /* La memoria de apoyo de 24 h no debe perderse al cerrar. */
+        await ledgerSaver.flush();
 
         await gateway.stop();
 

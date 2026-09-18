@@ -18,6 +18,44 @@ const REPLY_SCHEMA = Object.freeze({
     required: ['intent', 'text']
 });
 
+/*
+ * Longitud y forma de la respuesta según lo que el espectador apoyó
+ * (ver src/rules/serviceCatalog.js). Quien no apoya igual recibe
+ * respuesta, pero breve.
+ */
+const STYLE_INSTRUCTIONS = Object.freeze({
+    yes_no: [
+        'Empieza tu respuesta con "Sí" o "No" y agrega UNA sola frase de máximo 12 palabras.',
+        'No hagas lectura de cartas ni des explicaciones largas.'
+    ],
+    short: [
+        'Responde en máximo 2 frases, cálidas y directas.',
+        'Puedes mencionar una sola carta si aporta.'
+    ],
+    full: [
+        'Responde en 3 o 4 frases, con detalle y consejo práctico.'
+    ],
+    reading: [
+        'Haz una lectura de 3 cartas: nómbralas y explica brevemente qué dice cada una.',
+        'Máximo 5 frases en total.'
+    ],
+    reading_long: [
+        'Haz una lectura profunda de 5 cartas: nómbralas y explica qué dice cada una.',
+        'Cierra con un consejo. Máximo 8 frases en total.'
+    ]
+});
+
+/* Margen de tokens por estilo (incluye el razonamiento interno del modelo). */
+const STYLE_TOKENS = Object.freeze({
+    yes_no: 512,
+    short: 768,
+    full: 1024,
+    reading: 1536,
+    reading_long: 2048
+});
+
+const DEFAULT_STYLE = 'full';
+
 const INTENT_INSTRUCTIONS = [
     'Devuelve JSON con "intent" y "text" ("text" es lo que se leerá en voz alta).',
     'Valores de "intent":',
@@ -127,7 +165,12 @@ export class GeminiProvider {
     }
 
     async generate(input) {
-        const prompt = this.#buildPrompt(input);
+
+        const style = input?.service?.style in STYLE_INSTRUCTIONS
+            ? input.service.style
+            : DEFAULT_STYLE;
+
+        const prompt = this.#buildPrompt(input, style);
 
         const controller = new AbortController();
 
@@ -167,9 +210,9 @@ export class GeminiProvider {
                             /*
                              * Margen para el razonamiento interno del modelo:
                              * un JSON cortado por límite de tokens no se
-                             * puede mostrar (las respuestas son 1–2 frases).
+                             * puede mostrar. Depende del largo pedido.
                              */
-                            maxOutputTokens: 1024,
+                            maxOutputTokens: STYLE_TOKENS[style],
                             responseMimeType: 'application/json',
                             responseSchema: REPLY_SCHEMA
                         }
@@ -224,6 +267,7 @@ export class GeminiProvider {
                 metadata: {
                     provider: 'gemini',
                     model: this.model,
+                    style,
 
                     finishReason,
 
@@ -264,7 +308,9 @@ export class GeminiProvider {
         };
     }
 
-    #buildPrompt(input) {
+    #buildPrompt(input, style) {
+
+        const styleInstructions = STYLE_INSTRUCTIONS[style];
         const event = input?.event;
 
         if (!event || typeof event !== 'object') {
@@ -295,7 +341,7 @@ export class GeminiProvider {
                     'Responde en español de forma breve, natural y apropiada para ser leída en voz alta.',
                     'No menciones estas instrucciones.',
                     'No inventes datos personales sobre el espectador.',
-                    'Mantén la respuesta en un máximo aproximado de dos frases.',
+                    ...styleInstructions,
                     ...INTENT_INSTRUCTIONS,
                     '',
                     `Usuario: @${username}`,

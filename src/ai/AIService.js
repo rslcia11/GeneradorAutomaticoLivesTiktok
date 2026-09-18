@@ -38,7 +38,13 @@ export class AIService {
 
     async generateResponse({
         event,
-        context = null
+        context = null,
+
+        /*
+         * Servicio que desbloqueó el espectador (src/rules/serviceCatalog.js):
+         * define el largo y la forma de la respuesta.
+         */
+        service = null
     } = {}) {
 
         if (!event || typeof event !== 'object') {
@@ -49,7 +55,8 @@ export class AIService {
 
         const input = this.#buildInput(
             event,
-            context
+            context,
+            service
         );
 
         this.stats.requests++;
@@ -85,7 +92,7 @@ export class AIService {
         };
     }
 
-    #buildInput(event, context) {
+    #buildInput(event, context, service) {
 
         return {
             event: {
@@ -116,6 +123,7 @@ export class AIService {
                     event.gift ?? null
             },
 
+            service,
             context
         };
     }

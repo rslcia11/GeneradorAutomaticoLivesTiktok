@@ -15,6 +15,19 @@ const PRIORITY = Object.freeze({
 export class EventRuleEngine {
 
     constructor(config = {}) {
+
+        const {
+            /*
+             * Opcional (ServicePolicy): decide qué servicio recibe cada
+             * espectador según lo que haya regalado en 24 h. Sin él, el
+             * motor se comporta como antes: todos por igual.
+             */
+            policy = null,
+            ...rest
+        } = config;
+
+        this.policy = policy;
+
         this.config = {
             commentsEnabled: true,
             giftsEnabled: true,
@@ -23,7 +36,7 @@ export class EventRuleEngine {
 
             minGiftDiamondsForPriority: 10,
 
-            ...config
+            ...rest
         };
     }
 
@@ -80,10 +93,31 @@ export class EventRuleEngine {
             return this.#ignore('empty_comment');
         }
 
+        const decision = this.policy?.evaluateComment(event);
+
+        /*
+         * Sin apoyo y ya usó su respuesta gratis del día:
+         * se ignora aquí, sin gastar una llamada a la IA.
+         */
+        if (decision && !decision.allowed) {
+            return {
+                ...this.#ignore(decision.reason ?? 'not_allowed'),
+                metadata: {
+                    service: decision.service,
+                    hoursUntilFree: decision.hoursUntilFree ?? null
+                }
+            };
+        }
+
         return {
             action: ACTION.QUEUE,
-            priority: PRIORITY.NORMAL,
+            priority: decision?.priority ?? PRIORITY.NORMAL,
             reason: 'valid_comment',
+
+            metadata: decision
+                ? { service: decision.service, balance: decision.balance }
+                : undefined,
+
             event
         };
     }
@@ -113,28 +147,40 @@ export class EventRuleEngine {
         const totalDiamonds =
             diamondCount * repeatCount;
 
+        const decision = this.policy?.evaluateGift(event);
+
+        const metadata = {
+            totalDiamonds,
+            ...(decision && { service: decision.service, balance: decision.balance })
+        };
+
+        /*
+         * Agradecer un regalo nunca vale menos que un comentario:
+         * el servicio desbloqueado solo puede subir la prioridad.
+         */
+        const priority = Math.max(
+            PRIORITY.HIGH,
+            decision?.priority ?? 0
+        );
+
         if (
             totalDiamonds >=
             this.config.minGiftDiamondsForPriority
         ) {
             return {
                 action: ACTION.PRIORITY,
-                priority: PRIORITY.HIGH,
+                priority,
                 reason: 'high_value_gift',
-                metadata: {
-                    totalDiamonds
-                },
+                metadata,
                 event
             };
         }
 
         return {
             action: ACTION.QUEUE,
-            priority: PRIORITY.HIGH,
+            priority,
             reason: 'gift',
-            metadata: {
-                totalDiamonds
-            },
+            metadata,
             event
         };
     }

@@ -28,3 +28,27 @@ export function resolveIntent(event, modelIntent) {
         ? modelIntent
         : INTENT.COMMENT;
 }
+
+/**
+ * Lo que la persona pagó manda sobre lo que el modelo clasificó:
+ *
+ * - servicio con cartas  → siempre salen las cartas,
+ * - servicio sin cartas  → nunca salen (una respuesta corta gratis
+ *   no debe verse como una lectura completa).
+ *
+ * Los agradecimientos no se tocan: un regalo siempre agradece.
+ */
+export function applyServiceIntent(intent, service) {
+
+    if (!service || intent === INTENT.THANKS) {
+        return intent;
+    }
+
+    if (service.cards) {
+        return INTENT.TAROT_READING;
+    }
+
+    return intent === INTENT.TAROT_READING
+        ? INTENT.COMMENT
+        : intent;
+}

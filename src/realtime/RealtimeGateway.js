@@ -12,6 +12,12 @@ export class RealtimeGateway {
         port = 8080,
 
         /*
+         * Estado inicial para cada overlay que se conecta (menú de
+         * regalos, últimos donantes...): función que devuelve eventos.
+         */
+        welcome = null,
+
+        /*
          * Solo esta PC (el overlay de OBS corre en la misma máquina).
          * Sin esto, cualquiera en la red local podría conectarse.
          */
@@ -19,6 +25,7 @@ export class RealtimeGateway {
     } = {}) {
         this.port = port;
         this.host = host;
+        this.welcome = welcome;
         this.wss = null;
     }
 
@@ -51,6 +58,19 @@ export class RealtimeGateway {
                 event: 'connected',
                 timestamp: Date.now()
             }));
+
+            if (typeof this.welcome === 'function') {
+                try {
+                    for (const event of this.welcome() ?? []) {
+                        socket.send(JSON.stringify(event));
+                    }
+                } catch (error) {
+                    console.error(
+                        '❌ Error enviando el estado inicial:',
+                        error.message
+                    );
+                }
+            }
 
             socket.on('close', () => {
                 console.log(

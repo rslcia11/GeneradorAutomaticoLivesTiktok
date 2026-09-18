@@ -61,6 +61,7 @@ export class TikTokLiveAdapter {
                     id: data.giftId,
                     name: data.gift?.name,
                     diamondCount: data.gift?.diamondCount,
+                    image: data.gift?.image?.urlList?.[0] ?? null,
 
                     repeatCount: data.repeatCount,
                     comboCount: data.comboCount,
@@ -194,6 +195,11 @@ export class TikTokLiveAdapter {
             username: this.username,
             roomId: state.roomId
         };
+    }
+
+    /** Lista cruda de regalos de la sala (nombre, precio, imagen). */
+    async fetchGifts() {
+        return this.connection.fetchAvailableGifts();
     }
 
     disconnect() {

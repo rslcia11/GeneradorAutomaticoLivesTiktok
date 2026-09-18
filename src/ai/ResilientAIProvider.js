@@ -97,6 +97,8 @@ export class ResilientAIProvider {
                     this.shouldFallback(error);
 
                 if (!canFallback) {
+                    this.stats.failed++;
+
                     const allRateLimited =
                         attempts.length > 0 &&
                         attempts.every(
@@ -120,12 +122,9 @@ export class ResilientAIProvider {
                         blockedError.code = 'AI_ALL_BLOCKED';
                         blockedError.retryAfterMs = retryAfterMs;
 
-                        this.stats.failed++;
-
                         throw blockedError;
                     }
 
-                    this.stats.failed++;
                     throw error;
                 }
 

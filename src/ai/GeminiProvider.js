@@ -66,6 +66,15 @@ const INTENT_INSTRUCTIONS = [
 ];
 
 /**
+ * Parsea el tiempo de espera sugerido por Google en el mensaje de un error 429.
+ * Ej.: "Please retry in 14s" → 14 000. Sin match → 60 000 (default).
+ */
+export function parseRetryAfterMs(message = '') {
+    const match = message.match(/retry in (\d+)s/i);
+    return match ? Number(match[1]) * 1_000 : 60_000;
+}
+
+/**
  * Interpreta la respuesta del modelo.
  *
  * - JSON válido con "text" → { text, intent }
@@ -117,6 +126,8 @@ export function parseReply(rawText) {
 }
 
 export class GeminiProvider {
+    #blockedUntil = 0;
+
     constructor({
         apiKey,
         model = 'gemini-2.5-flash',
@@ -165,6 +176,16 @@ export class GeminiProvider {
     }
 
     async generate(input) {
+
+        if (Date.now() < this.#blockedUntil) {
+            const retryAfterMs = this.#blockedUntil - Date.now();
+            const error = new Error(
+                `Gemini ${this.model} en pausa por cuota agotada`
+            );
+            error.code = 'GEMINI_RATE_LIMITED';
+            error.retryAfterMs = retryAfterMs;
+            throw error;
+        }
 
         const style = input?.service?.style in STYLE_INSTRUCTIONS
             ? input.service.style
@@ -223,9 +244,15 @@ export class GeminiProvider {
             );
 
             if (!response.ok) {
-                throw await this.#createHttpError(
-                    response
-                );
+                const httpError = await this.#createHttpError(response);
+
+                if (response.status === 429) {
+                    const retryMs = parseRetryAfterMs(httpError.message);
+                    httpError.retryAfterMs = retryMs;
+                    this.#blockedUntil = Date.now() + retryMs;
+                }
+
+                throw httpError;
             }
 
             const data = await response.json();
@@ -304,7 +331,9 @@ export class GeminiProvider {
     getStats() {
         return {
             ...this.stats,
-            model: this.model
+            model: this.model,
+            isBlocked: Date.now() < this.#blockedUntil,
+            blockedUntil: this.#blockedUntil
         };
     }
 

@@ -21,6 +21,7 @@ const SUITES = [
     'queue-worker',
     'ai-service',
     'resilient-ai-provider',
+    'gemini-provider',         // ← añadir aquí
     'intents',
     'services',
     'gift-catalog',

@@ -248,9 +248,13 @@ export class Hud {
 
         const { contactBanner } = this.elements;
 
-        const text = typeof contact?.text === 'string' ? contact.text.trim() : '';
+        const enabled = contact?.enabled === true;
+        const text = enabled && typeof contact.text === 'string' ? contact.text.trim() : '';
+        const phone = enabled && typeof contact.phone === 'string' ? contact.phone.trim() : '';
 
-        if (!contactBanner || !contact?.enabled || !text) {
+        this.#showPrivateConsult(phone);
+
+        if (!contactBanner || !text) {
             return;
         }
 
@@ -290,6 +294,19 @@ export class Hud {
 
         /* La primera vez espera un poco: no arranca encima del saludo. */
         later(show, Math.min(everyMs, FIRST_CONTACT_MS));
+    }
+
+    /** Cartel fijo con el teléfono. Sin teléfono, no existe. */
+    #showPrivateConsult(phone) {
+
+        const { privateConsult, privateConsultPhone } = this.elements;
+
+        if (!privateConsult || !privateConsultPhone) {
+            return;
+        }
+
+        privateConsultPhone.textContent = phone;
+        privateConsult.hidden = phone.length === 0;
     }
 
     stopContact() {

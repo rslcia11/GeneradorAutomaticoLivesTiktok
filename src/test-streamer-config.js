@@ -58,6 +58,7 @@ test('Lee la frase y el teléfono del archivo', () => {
     assert.deepEqual(resolveContact(file, {}), {
         enabled: true,
         text: 'Escríbeme al 0999999999',
+        phone: '',
         visibleSeconds: 8,
         everyMinutes: 6
     });
@@ -77,9 +78,21 @@ test('El entorno manda sobre el archivo', () => {
     assert.equal(contact.everyMinutes, 3);
 });
 
-test('Sin texto nunca se enciende, aunque esté marcada como activa', () => {
+test('Sin texto ni teléfono nunca se enciende, aunque esté marcada como activa', () => {
     assert.equal(resolveContact({ contact: { enabled: true, text: '   ' } }, {}).enabled, false);
     assert.equal(resolveContact({ contact: { enabled: true } }, {}).enabled, false);
+});
+
+test('El teléfono del cartel fijo sale del archivo o del entorno, nunca del código', () => {
+    const fromFile = resolveContact({ contact: { enabled: true, phone: ' 0999999999 ' } }, {});
+
+    assert.equal(fromFile.phone, '0999999999');
+    assert.equal(fromFile.enabled, true, 'solo con teléfono ya hay algo que mostrar');
+
+    const fromEnv = resolveContact({ contact: { enabled: true, phone: '0999999999' } }, { CONTACT_PHONE: '0988888888' });
+
+    assert.equal(fromEnv.phone, '0988888888');
+    assert.equal(resolveContact({}, {}).phone, '');
 });
 
 test('Valores inválidos vuelven a los tiempos por defecto', () => {

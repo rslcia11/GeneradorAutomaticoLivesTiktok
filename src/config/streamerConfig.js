@@ -13,6 +13,7 @@ import { readFileSync } from 'node:fs';
 export const DEFAULT_CONTACT = Object.freeze({
     enabled: false,
     text: '',
+    phone: '',
     visibleSeconds: 12,
     everyMinutes: 10
 });
@@ -85,10 +86,14 @@ export function resolveContact(file = {}, env = {}) {
 
     const text = (env.CONTACT_TEXT ?? fromFile.text ?? DEFAULT_CONTACT.text).toString().trim();
 
+    /* Teléfono del cartel fijo "Consulta privada". Nunca va en el código. */
+    const phone = (env.CONTACT_PHONE ?? fromFile.phone ?? DEFAULT_CONTACT.phone).toString().trim();
+
     return {
-        /* Sin texto no hay nada que mostrar, aunque esté encendida. */
-        enabled: enabled && text.length > 0,
+        /* Sin texto ni teléfono no hay nada que mostrar, aunque esté encendida. */
+        enabled: enabled && (text.length > 0 || phone.length > 0),
         text,
+        phone,
         visibleSeconds: asNumber(env.CONTACT_VISIBLE_SECONDS ?? fromFile.visibleSeconds, DEFAULT_CONTACT.visibleSeconds),
         everyMinutes: asNumber(env.CONTACT_EVERY_MINUTES ?? fromFile.everyMinutes, DEFAULT_CONTACT.everyMinutes)
     };

@@ -55,6 +55,12 @@ const elements = {
     contactBanner:
         document.getElementById('contact-banner'),
 
+    privateConsult:
+        document.getElementById('private-consult'),
+
+    privateConsultPhone:
+        document.getElementById('private-consult-phone'),
+
     responseBar:
         document.getElementById('response-bar'),
 

@@ -724,6 +724,11 @@ async function start() {
                 ? `📞 Contacto: visible ${config.contact.visibleSeconds}s cada ${config.contact.everyMinutes} min`
                 : '📵 Franja de contacto desactivada (streamer.config.json → contact.enabled)'
         );
+        logger.info(
+            config.contact.enabled && config.contact.phone
+                ? '🔮 Cartel "Consulta privada" con teléfono'
+                : '🔮 Cartel "Consulta privada" apagado (streamer.config.json → contact.phone)'
+        );
         logger.info('Esperando eventos...\n');
 
     } catch (error) {

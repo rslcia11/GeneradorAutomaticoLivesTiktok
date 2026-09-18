@@ -76,22 +76,35 @@ Crea `streamer.config.json` en la raíz. **No se sube a git**: es para tus datos
 
 ```json
 {
+    "tiktokUsername": "tu_usuario_sin_arroba",
     "contact": {
         "enabled": true,
         "text": "✨ ¿Quieres una consulta personalizada? Escríbeme al 09XXXXXXXX",
+        "phone": "09XXXXXXXX",
         "visibleSeconds": 12,
         "everyMinutes": 6
+    },
+    "promo": {
+        "enabled": true,
+        "text": "🎁 Regala una Rosa y pregunta"
     }
 }
 ```
 
-La franja aparece 15 s después de abrir el overlay y se repite cada `everyMinutes`. Con `"enabled": false` no se muestra nunca.
+- `contact.text` es la **franja** que aparece 15 s después de abrir el overlay y se repite cada `everyMinutes`.
+- `contact.phone` es el **cartel fijo** "Consulta privada" de la esquina inferior. Sin teléfono, el cartel no existe.
+- `promo.text` es la pastilla fija de promoción.
+- Con `"enabled": false` no se muestra nada de ese bloque.
 
-> ⚠️ TikTok suele penalizar sacar usuarios de la plataforma con fines comerciales. Si notas advertencias o menos alcance, apágala.
+Cualquiera de estos valores se puede pasar también por `.env` (`TIKTOK_USERNAME`, `CONTACT_TEXT`, `CONTACT_PHONE`, `PROMO_TEXT`…), y el `.env` manda sobre el archivo.
+
+> 🔐 El teléfono y el usuario **nunca** van escritos en el código: solo aquí o en `.env`, que no se suben a git.
+
+> ⚠️ TikTok suele penalizar sacar usuarios de la plataforma con fines comerciales. Si notas advertencias o menos alcance, apaga el contacto.
 
 ### Cuenta de TikTok
 
-Por ahora el usuario está fijo en [src/app.js](src/app.js) (`config.tiktokUsername`). Cámbialo por tu cuenta **sin la @**. Pasarlo a `.env` está pendiente, ver [docs/STATUS.md](docs/STATUS.md).
+Es obligatoria: `TIKTOK_USERNAME` en `.env` o `tiktokUsername` en `streamer.config.json`, **sin la @**. Sin ella la app no arranca y lo dice claro.
 
 ---
 

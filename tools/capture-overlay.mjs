@@ -82,6 +82,7 @@ const SAMPLE = `
     send({ type: 'contact_banner', contact: {
         enabled: true,
         text: '✨ ¿Consulta personalizada? Escríbeme al 09XXXXXXXX',
+        phone: '09XXXXXXXX',
         visibleSeconds: 12,
         everyMinutes: 6
     }});
@@ -200,7 +201,8 @@ for (const [name, size] of screens) {
     const state = await evaluate(`JSON.stringify({
         conexion: document.getElementById('connection-status').textContent.trim(),
         escala: getComputedStyle(document.documentElement).getPropertyValue('--stage-scale').trim(),
-        contactoVisible: !document.getElementById('contact-banner').hidden
+        contactoVisible: !document.getElementById('contact-banner').hidden,
+        telefono: document.getElementById('private-consult-phone').textContent
     })`);
 
     const shot = await send('Page.captureScreenshot', { format: 'png' });

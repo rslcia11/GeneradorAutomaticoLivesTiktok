@@ -62,7 +62,9 @@ function createHud() {
         serviceMenuList: createElement('ul'),
         donorBoard: createElement(),
         donorBoardList: createElement('ol'),
-        contactBanner: createElement()
+        contactBanner: createElement(),
+        privateConsult: createElement(),
+        privateConsultPhone: createElement()
     };
 
     const timers = [];
@@ -353,6 +355,33 @@ test('Desactivada o sin texto, la franja nunca aparece', () => {
 
         assert.equal(timers.length, 0);
         assert.equal(elements.contactBanner.hidden, true);
+    }
+});
+
+test('El cartel "Consulta privada" muestra el teléfono que llega del backend', () => {
+    const { hud, elements, timers } = createHud();
+
+    hud.handle({ type: 'contact_banner', contact: { enabled: true, phone: ' 0999999999 ' } });
+
+    assert.equal(elements.privateConsultPhone.textContent, '0999999999');
+    assert.equal(elements.privateConsult.hidden, false);
+    assert.equal(timers.length, 0, 'sin frase, la franja rotativa no arranca');
+});
+
+test('Sin teléfono, o desactivado, el cartel se oculta y no queda un número viejo', () => {
+    const { hud, elements } = createHud();
+
+    hud.handle({ type: 'contact_banner', contact: { enabled: true, phone: '0999999999' } });
+
+    for (const contact of [
+        { enabled: true, text: 'Hola' },
+        { enabled: false, phone: '0999999999' },
+        undefined
+    ]) {
+        hud.handle({ type: 'contact_banner', contact });
+
+        assert.equal(elements.privateConsult.hidden, true);
+        assert.equal(elements.privateConsultPhone.textContent, '');
     }
 });
 

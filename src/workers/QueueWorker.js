@@ -4,6 +4,7 @@ export class QueueWorker {
         processor,
         handler,
         pollIntervalMs = 100,
+        maxItemAgeMs = 60_000,
         onResult = null,
         onError = null
     } = {}) {
@@ -31,6 +32,10 @@ export class QueueWorker {
 
         this.onResult = onResult;
         this.onError = onError;
+
+        this.maxItemAgeMs = maxItemAgeMs;
+        this.blockedUntil = 0;
+        this.drainItemsBefore = 0;
 
         this.running = false;
         this.processing = false;
@@ -80,7 +85,8 @@ export class QueueWorker {
             ...this.stats,
             running: this.running,
             processing: this.processing,
-            queueSize: this.processor.queueSize
+            queueSize: this.processor.queueSize,
+            blockedUntil: this.blockedUntil
         };
     }
 
@@ -102,6 +108,14 @@ export class QueueWorker {
             return;
         }
 
+        // Circuit breaker: pausa mientras la cuota esté agotada
+        const blockRemaining = this.blockedUntil - Date.now();
+
+        if (blockRemaining > 0) {
+            this.#schedule(Math.min(blockRemaining, 5_000));
+            return;
+        }
+
         const queueItem = this.processor.next();
 
         if (!queueItem) {
@@ -109,7 +123,27 @@ export class QueueWorker {
             return;
         }
 
+        // Descartar items que llegaron durante un bloqueo o son demasiado viejos
+        const queuedAt = queueItem.queuedAt ?? 0;
+        const age = queuedAt > 0 ? Date.now() - queuedAt : 0;
+        const isDuringBlock =
+            queuedAt > 0 && queuedAt < this.drainItemsBefore;
+        const isStale = age > this.maxItemAgeMs;
+
+        if (isDuringBlock || isStale) {
+            console.log(
+                `🗑️ Descartando ${queueItem.event?.type} ` +
+                `(${isDuringBlock
+                    ? 'encolado durante bloqueo'
+                    : `${Math.round(age / 1_000)}s de antigüedad`})`
+            );
+            this.#schedule(0);
+            return;
+        }
+
         this.processing = true;
+
+        let blockRetryMs = null;
 
         try {
             const result = await this.handler(queueItem);
@@ -118,10 +152,7 @@ export class QueueWorker {
 
             if (typeof this.onResult === 'function') {
                 try {
-                    await this.onResult(
-                        result,
-                        queueItem
-                    );
+                    await this.onResult(result, queueItem);
                 } catch (callbackError) {
                     console.error(
                         '❌ Error en onResult:',
@@ -131,40 +162,46 @@ export class QueueWorker {
             }
 
         } catch (error) {
-            this.stats.failed++;
+            if (error?.code === 'AI_ALL_BLOCKED') {
+                const retryMs = error.retryAfterMs ?? 60_000;
+                this.blockedUntil = Date.now() + retryMs;
+                this.drainItemsBefore = this.blockedUntil;
+                blockRetryMs = retryMs;
 
-            if (typeof this.onError === 'function') {
-                try {
-                    await this.onError(
-                        error,
-                        queueItem
-                    );
-                } catch (callbackError) {
+                console.warn(
+                    `⏸️ IA bloqueada por cuota agotada. ` +
+                    `Pausa de ${Math.round(retryMs / 1_000)}s. ` +
+                    `Comentarios encolados durante este período se descartan.`
+                );
+
+            } else {
+                this.stats.failed++;
+
+                if (typeof this.onError === 'function') {
+                    try {
+                        await this.onError(error, queueItem);
+                    } catch (callbackError) {
+                        console.error(
+                            '❌ Error en onError:',
+                            callbackError
+                        );
+                    }
+                } else {
                     console.error(
-                        '❌ Error en onError:',
-                        callbackError
+                        '❌ Error procesando elemento de cola:',
+                        error
                     );
                 }
-            } else {
-                console.error(
-                    '❌ Error procesando elemento de cola:',
-                    error
-                );
             }
 
         } finally {
             this.processing = false;
 
-            /*
-             * Si todavía existen elementos,
-             * procesamos el siguiente inmediatamente.
-             *
-             * Si está vacía, volvemos al intervalo normal.
-             */
-            const delay =
-                this.processor.queueSize > 0
+            const delay = blockRetryMs !== null
+                ? blockRetryMs
+                : (this.processor.queueSize > 0
                     ? 0
-                    : this.pollIntervalMs;
+                    : this.pollIntervalMs);
 
             this.#schedule(delay);
         }

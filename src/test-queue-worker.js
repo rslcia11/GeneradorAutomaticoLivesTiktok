@@ -579,6 +579,151 @@ await test('Constructor exige handler', async () => {
 });
 
 
+// 16. AI_ALL_BLOCKED no llama onError ni cuenta como fallo
+await test('AI_ALL_BLOCKED → sin onError, establece blockedUntil', async () => {
+    const processor = createProcessor();
+    let onErrorCalled = false;
+
+    addComment(processor, 'cuota agotada');
+
+    const worker = new QueueWorker({
+        processor,
+        pollIntervalMs: 10,
+
+        handler: async () => {
+            const error = new Error('Cuota agotada');
+            error.code = 'AI_ALL_BLOCKED';
+            error.retryAfterMs = 15_000;
+            throw error;
+        },
+
+        onError: async () => {
+            onErrorCalled = true;
+        }
+    });
+
+    worker.start();
+
+    await waitUntil(
+        () => worker.blockedUntil > 0,
+        { timeoutMs: 500 }
+    );
+
+    await worker.stop();
+
+    assert.equal(onErrorCalled, false, 'onError no debe llamarse');
+    assert.ok(
+        worker.blockedUntil > Date.now(),
+        'blockedUntil debe estar en el futuro'
+    );
+    assert.equal(
+        worker.drainItemsBefore,
+        worker.blockedUntil
+    );
+    assert.equal(
+        worker.getStats().failed,
+        0,
+        'No debe contar como fallo'
+    );
+});
+
+
+// 17. Worker no desencola mientras está bloqueado
+await test('No procesa items mientras blockedUntil está en el futuro', async () => {
+    const processor = createProcessor();
+    let handlerCalls = 0;
+
+    addComment(processor, 'Bloqueado');
+
+    const worker = new QueueWorker({
+        processor,
+        pollIntervalMs: 10,
+        handler: async () => { handlerCalls++; }
+    });
+
+    // Bloquear manualmente antes de arrancar
+    worker.blockedUntil = Date.now() + 300;
+
+    worker.start();
+
+    await sleep(100);
+
+    assert.equal(handlerCalls, 0, 'Handler no debe llamarse mientras bloqueado');
+    assert.equal(processor.queueSize, 1, 'Item debe seguir en cola');
+
+    await worker.stop();
+});
+
+
+// 18. Item más viejo que maxItemAgeMs se descarta silenciosamente
+await test('Item antiguo (> maxItemAgeMs) se descarta sin llamar onError', async () => {
+    const processor = createProcessor();
+    let handlerCalls = 0;
+    let onErrorCalled = false;
+
+    // Añadir item con timestamp antiguo para que queuedAt también sea viejo.
+    // Usamos un wrapper que sobreescribe queuedAt después de encolar.
+    addComment(processor, 'viejo');
+
+    // Hack: el item ya está en la cola — manipulamos queuedAt directamente
+    // accediendo a la cola interna para simular un item que lleva 2 minutos esperando.
+    const item = processor.peek();
+    item.queuedAt = Date.now() - 120_000; // 2 minutos de antigüedad
+
+    const worker = new QueueWorker({
+        processor,
+        pollIntervalMs: 10,
+        maxItemAgeMs: 60_000,
+
+        handler: async () => { handlerCalls++; },
+        onError: async () => { onErrorCalled = true; }
+    });
+
+    worker.start();
+
+    await waitUntil(
+        () => processor.queueSize === 0,
+        { timeoutMs: 500 }
+    );
+
+    await worker.stop();
+
+    assert.equal(handlerCalls, 0, 'Handler no debe llamarse para item antiguo');
+    assert.equal(onErrorCalled, false, 'onError no debe llamarse para item antiguo');
+    assert.equal(worker.getStats().failed, 0, 'No debe contar como fallo');
+});
+
+
+// 19. Item con queuedAt durante bloqueo se descarta al reanudar
+await test('Item encolado durante bloqueo se descarta cuando el worker reanuda', async () => {
+    const processor = createProcessor();
+    let handlerCalls = 0;
+
+    addComment(processor, 'durante-bloqueo');
+
+    const worker = new QueueWorker({
+        processor,
+        pollIntervalMs: 10,
+        handler: async () => { handlerCalls++; }
+    });
+
+    // Simular: el bloqueo "acaba de terminar" pero el item fue encolado durante él.
+    // drainItemsBefore = ahora → cualquier item con queuedAt < ahora será descartado.
+    worker.drainItemsBefore = Date.now() + 1; // +1ms de margen
+
+    worker.start();
+
+    await waitUntil(
+        () => processor.queueSize === 0,
+        { timeoutMs: 500 }
+    );
+
+    await worker.stop();
+
+    assert.equal(handlerCalls, 0, 'Item durante bloqueo no debe procesarse');
+});
+
+
 console.log(
-    `\n🎯 ${passed}/15 pruebas de QueueWorker superadas correctamente.`
+    `\n🎯 ${passed}/19 pruebas de QueueWorker superadas correctamente.`
 );

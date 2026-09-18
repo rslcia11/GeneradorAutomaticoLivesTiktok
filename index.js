@@ -3,7 +3,8 @@ import {
     WebcastEvent
 } from 'tiktok-live-connector';
 
-const tiktokUsername = 'tarotdebeto.co';
+const tiktokUsername = process.env.TIKTOK_USERNAME?.trim();
+if (!tiktokUsername) throw new Error('Pon TIKTOK_USERNAME=tu_usuario en .env');
 
 const connection = new TikTokLiveConnection(tiktokUsername, {});
 

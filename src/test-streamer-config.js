@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { DEFAULT_CONTACT, readStreamerConfig, resolveContact } from './config/streamerConfig.js';
+import { DEFAULT_CONTACT, readStreamerConfig, resolveContact, resolveTiktokUsername } from './config/streamerConfig.js';
 
 let passed = 0;
 let total = 0;
@@ -90,6 +90,32 @@ test('Valores inválidos vuelven a los tiempos por defecto', () => {
 
     assert.equal(contact.visibleSeconds, DEFAULT_CONTACT.visibleSeconds);
     assert.equal(contact.everyMinutes, DEFAULT_CONTACT.everyMinutes);
+});
+
+
+// resolveTiktokUsername
+
+test('Lee usuario de TikTok desde variable de entorno', () => {
+    assert.equal(resolveTiktokUsername({}, { TIKTOK_USERNAME: 'mago_prueba' }), 'mago_prueba');
+});
+
+test('Lee usuario de TikTok desde el archivo cuando no hay env var', () => {
+    assert.equal(resolveTiktokUsername({ tiktokUsername: 'mago_archivo' }, {}), 'mago_archivo');
+});
+
+test('Env var tiene prioridad sobre el archivo', () => {
+    assert.equal(
+        resolveTiktokUsername({ tiktokUsername: 'archivo' }, { TIKTOK_USERNAME: 'entorno' }),
+        'entorno'
+    );
+});
+
+test('Sin usuario en ningún lado lanza error claro', () => {
+    assert.throws(() => resolveTiktokUsername({}, {}), /TIKTOK_USERNAME/);
+});
+
+test('Espacios en blanco no cuentan como usuario', () => {
+    assert.throws(() => resolveTiktokUsername({}, { TIKTOK_USERNAME: '   ' }), /TIKTOK_USERNAME/);
 });
 
 

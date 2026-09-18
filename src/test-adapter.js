@@ -1,6 +1,7 @@
 import { TikTokLiveAdapter } from './tiktok/TikTokLiveAdapter.js';
 
-const username = 'tarotdebeto.co';
+const username = process.env.TIKTOK_USERNAME?.trim();
+if (!username) throw new Error('Pon TIKTOK_USERNAME=tu_usuario en .env');
 
 const tiktok = new TikTokLiveAdapter(username);
 

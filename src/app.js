@@ -16,13 +16,13 @@ import { ThankYouTemplates } from './ai/ThankYouTemplates.js';
 import { ServicePolicy } from './rules/ServicePolicy.js';
 import { createLedgerSaver, loadLedger } from './rules/ledgerStore.js';
 import { decorateMenu, normalizeGifts } from './rules/giftCatalog.js';
-import { readStreamerConfig, resolveContact } from './config/streamerConfig.js';
+import { readStreamerConfig, resolveContact, resolveTiktokUsername } from './config/streamerConfig.js';
 
 /* Preferencias del streamer (frase y teléfono). Las claves siguen en .env. */
 const streamer = readStreamerConfig('./streamer.config.json');
 
 const config = {
-    tiktokUsername: 'tarotdebeto.co',
+    tiktokUsername: resolveTiktokUsername(streamer, process.env),
     websocketPort: 8080,
 
     queueMaxSize: 100,

@@ -42,6 +42,25 @@ const asNumber = (value, fallback) => {
     return Number.isFinite(number) && number > 0 ? number : fallback;
 };
 
+/**
+ * Usuario de TikTok del streamer.
+ * Prioridad: TIKTOK_USERNAME en .env > tiktokUsername en streamer.config.json.
+ * Lanza si no está configurado en ninguno de los dos.
+ */
+export function resolveTiktokUsername(file = {}, env = {}) {
+    const username = (env.TIKTOK_USERNAME ?? file.tiktokUsername ?? '').toString().trim();
+
+    if (!username) {
+        throw new Error(
+            'Usuario de TikTok no configurado. ' +
+            'Pon TIKTOK_USERNAME=tu_usuario en .env ' +
+            'o tiktokUsername en streamer.config.json'
+        );
+    }
+
+    return username;
+}
+
 /** Franja de contacto, tomando lo que haya en el entorno, el archivo o el defecto. */
 export function resolveContact(file = {}, env = {}) {
 

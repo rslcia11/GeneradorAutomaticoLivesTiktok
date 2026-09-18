@@ -553,8 +553,33 @@ export class AnimatedAvatar {
             onReveal: () => {}
         });
 
+        /* Esfera armilar: 3 anillos 3D giratorios en coordenadas del mundo.
+         * Posición estimada (200, 384) = escena (110, 250) con scale=0.5505.
+         * Ajustar ARM_X / ARM_Y si la posición visual no coincide. */
+        const ARM_X = 200, ARM_Y = 384, ARM_R = 40;
+        const ARM_DEFS = [
+            { speed:  0.55, t: 0,             axis: 'y', tilt: 0   },
+            { speed: -0.38, t: Math.PI * 0.5, axis: 'x', tilt: 0   },
+            { speed:  0.72, t: Math.PI * 0.2, axis: 'y', tilt: 0.7 }
+        ];
+        this.armRings = ARM_DEFS.map(def => {
+            const c = new Container();
+            c.position.set(ARM_X, ARM_Y);
+            c.rotation  = def.tilt;
+            c.blendMode = 'add';
+
+            const g = new Graphics()
+                .ellipse(0, 0, ARM_R, ARM_R * 0.82)
+                .stroke({ width: 2.5, color: 0xffcc33, alpha: 0.78 });
+
+            c.addChild(g);
+
+            return { c, t: def.t, speed: def.speed, axis: def.axis };
+        });
+
         this.world.addChild(
             this.aura,
+            ...this.armRings.map(r => r.c),
             this.figure,
             this.smoke.container,
             this.ballGlow,
@@ -634,6 +659,7 @@ export class AnimatedAvatar {
         this.#updateReadingCards(dt, speaking);
         this.#updateTableCards(dt);
         this.#updateMagicTrick(dt);
+        this.#updateArmillary(dt);
 
         this.celebration = Math.max(0, this.celebration - dt / CELEBRATION_S);
 
@@ -1144,6 +1170,18 @@ export class AnimatedAvatar {
         el.classList.add('magic-trick--in');
 
         setTimeout(() => el.remove(), 3400);
+    }
+
+    #updateArmillary(dt) {
+
+        for (const ring of this.armRings) {
+            ring.t += dt * ring.speed;
+            if (ring.axis === 'y') {
+                ring.c.scale.x = Math.cos(ring.t);
+            } else {
+                ring.c.scale.y = Math.cos(ring.t);
+            }
+        }
     }
 
     #updateCatLook(dt) {

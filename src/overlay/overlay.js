@@ -53,7 +53,25 @@ const elements = {
         document.getElementById('donor-board-list'),
 
     contactBanner:
-        document.getElementById('contact-banner')
+        document.getElementById('contact-banner'),
+
+    responseBar:
+        document.getElementById('response-bar'),
+
+    responseBarUser:
+        document.getElementById('response-bar-user'),
+
+    responseBarText:
+        document.getElementById('response-bar-text'),
+
+    cardSpotlight:
+        document.getElementById('card-spotlight'),
+
+    cardSpotlightName:
+        document.getElementById('card-spotlight-name'),
+
+    promoBanner:
+        document.getElementById('promo-banner')
 };
 
 validateRequiredElements();
@@ -103,7 +121,12 @@ const presenter = new InteractionPresenter({
     onThinking: afterStoppingSpeech(showThinking),
     onSpeaking: afterStoppingSpeech(showResponse),
     onFailed: afterStoppingSpeech(showFailure),
-    onIdle: afterStoppingSpeech(() => avatar.idle())
+    onIdle: afterStoppingSpeech(() => {
+        avatar.idle();
+        if (elements.responseBar) {
+            elements.responseBar.hidden = true;
+        }
+    })
 });
 
 /*
@@ -347,6 +370,10 @@ function handleEvent(event) {
             handleComment(event);
             break;
 
+        case 'queue_position':
+            handleQueuePosition(event);
+            break;
+
         case 'ai_processing':
             presenter.processing(event);
             break;
@@ -460,6 +487,25 @@ function handleComment(event) {
 
 
 /* ============================================================
+   QUEUE POSITION
+   ============================================================ */
+
+function handleQueuePosition(event) {
+
+    const username = getDisplayName(event.user);
+    const pos = positiveInteger(event.position, 0);
+
+    if (!pos) {
+        return;
+    }
+
+    showNotification(
+        `✨ ${username} en la fila — Puesto #${pos}`
+    );
+}
+
+
+/* ============================================================
    AI — PROCESSING
    ============================================================ */
 
@@ -526,6 +572,13 @@ function showResponse(event) {
 
     elements.commentContent.textContent =
         text;
+
+    if (elements.responseBar) {
+        elements.responseBarUser.textContent =
+            `Respondiendo a ${username}`;
+        elements.responseBarText.textContent = text;
+        elements.responseBar.hidden = false;
+    }
 
     /*
      * La duración la controla InteractionPresenter: estimada por
@@ -945,6 +998,10 @@ function shutdownOverlay() {
         notificationTimer
     );
 
+    clearTimeout(
+        cardSpotlightTimer
+    );
+
     presenter.reset();
     speech.destroy();
     hud.destroy();
@@ -974,6 +1031,33 @@ window.addEventListener(
 
 
 /* ============================================================
+   CARD SPOTLIGHT
+   ============================================================ */
+
+let cardSpotlightTimer = null;
+
+function showCardSpotlight(cardName) {
+
+    if (!elements.cardSpotlight || !cardName) {
+        return;
+    }
+
+    clearTimeout(cardSpotlightTimer);
+
+    elements.cardSpotlightName.textContent = cardName;
+    elements.cardSpotlight.hidden = false;
+    elements.cardSpotlight.classList.add('card-spotlight--visible');
+
+    cardSpotlightTimer = setTimeout(() => {
+        elements.cardSpotlight.classList.remove('card-spotlight--visible');
+        cardSpotlightTimer = setTimeout(() => {
+            elements.cardSpotlight.hidden = true;
+        }, 500);
+    }, 2800);
+}
+
+
+/* ============================================================
    AVATAR ANIMADO (PixiJS)
    ============================================================ */
 
@@ -992,7 +1076,8 @@ async function startAnimatedAvatar() {
             initialState: avatar.state,
             initialIntent: avatar.intent,
             maxFPS: Number(overlayParams.get('fps')) || 60,
-            debug: overlayParams.get('debug')
+            debug: overlayParams.get('debug'),
+            onCardReveal: showCardSpotlight
         });
 
         console.log('Avatar animado activo');

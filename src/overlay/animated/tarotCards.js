@@ -357,7 +357,7 @@ export class FloatingCards {
 
         if (transform.faceUp && !card.revealed) {
             card.revealed = true;
-            this.onReveal(transform.x, transform.y, card.arcana?.tint ?? 0xffffff);
+            this.onReveal(transform.x, transform.y, card.arcana?.tint ?? 0xffffff, card.arcana?.name ?? '');
         }
     }
 

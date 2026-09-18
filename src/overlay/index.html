@@ -376,6 +376,55 @@
 
 
         <!-- =====================================================
+             BARRA DE RESPUESTA IA
+
+             Visible mientras el mago habla. Muestra a quién
+             responde y el texto de la lectura.
+             ===================================================== -->
+
+        <div
+            id="response-bar"
+            class="response-bar"
+            aria-live="polite"
+            hidden
+        >
+            <span id="response-bar-user" class="response-bar__user"></span>
+            <span id="response-bar-text" class="response-bar__text"></span>
+        </div>
+
+
+        <!-- =====================================================
+             DESTAQUE DE CARTA
+
+             Aparece brevemente cuando una carta se revela
+             en la lectura (solo con avatar animado).
+             ===================================================== -->
+
+        <div
+            id="card-spotlight"
+            class="card-spotlight"
+            aria-hidden="true"
+            hidden
+        >
+            <span id="card-spotlight-name" class="card-spotlight__name"></span>
+        </div>
+
+
+        <!-- =====================================================
+             PROMOCIÓN FIJA
+
+             Pastilla configurable desde streamer.config.json.
+             Apagada por defecto.
+             ===================================================== -->
+
+        <div
+            id="promo-banner"
+            class="promo-banner"
+            hidden
+        ></div>
+
+
+        <!-- =====================================================
              NOTIFICACIONES
 
              Gifts, follows, shares, subscriptions, etc.

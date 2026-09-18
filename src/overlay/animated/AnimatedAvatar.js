@@ -94,13 +94,13 @@ function pick(list) {
 
 export class AnimatedAvatar {
 
-    static async create({ root, imageUrl, initialState = 'idle', initialIntent = null, maxFPS = 60, debug = null }) {
+    static async create({ root, imageUrl, initialState = 'idle', initialIntent = null, maxFPS = 60, debug = null, onCardReveal = null }) {
 
         if (!isWebGLSupported()) {
             throw new Error('WebGL no está disponible en este navegador');
         }
 
-        const avatar = new AnimatedAvatar({ root, initialState, initialIntent, maxFPS, debug });
+        const avatar = new AnimatedAvatar({ root, initialState, initialIntent, maxFPS, debug, onCardReveal });
 
         try {
             await avatar.#init(imageUrl);
@@ -112,7 +112,7 @@ export class AnimatedAvatar {
         return avatar;
     }
 
-    constructor({ root, initialState, initialIntent, maxFPS, debug }) {
+    constructor({ root, initialState, initialIntent, maxFPS, debug, onCardReveal = null }) {
 
         this.root = root;
         this.maxFPS = maxFPS;
@@ -147,6 +147,8 @@ export class AnimatedAvatar {
         this.rigValues = Object.fromEntries(
             DEFORMERS.map(deformer => [deformer.name, {}])
         );
+
+        this.onCardReveal = typeof onCardReveal === 'function' ? onCardReveal : null;
 
         this.layoutSize = { width: 0, height: 0 };
 
@@ -462,7 +464,7 @@ export class AnimatedAvatar {
             origin: ball,
             slots: ANCHORS.readingSlots,
             onSparkle: (x, y, count) => this.#emitCardSparks(x, y, count),
-            onReveal: (x, y, tint) => this.#celebrateReveal(x, y, tint)
+            onReveal: (x, y, tint, name) => this.#celebrateReveal(x, y, tint, name)
         });
 
         this.world.addChild(
@@ -739,7 +741,10 @@ export class AnimatedAvatar {
     }
 
     /* El golpe visual del volteo: onda de choque + lluvia de chispas. */
-    #celebrateReveal(x, y, tint) {
+    #celebrateReveal(x, y, tint, name = '') {
+        if (this.onCardReveal && name) {
+            this.onCardReveal(name);
+        }
 
         /* Escalas relativas a RING_TEXTURE_RADIUS: ~27 px → ~170 px. */
         this.rings.emit({

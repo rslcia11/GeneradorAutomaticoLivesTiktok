@@ -114,6 +114,10 @@ export class Hud {
                 this.startContact(event.contact);
                 return true;
 
+            case 'promo_banner':
+                this.showPromo(event.promo);
+                return true;
+
             default:
                 return false;
         }
@@ -301,6 +305,25 @@ export class Hud {
             contactBanner.hidden = true;
             contactBanner.classList.remove('contact-banner--visible');
         }
+    }
+
+    showPromo(promo) {
+
+        const { promoBanner } = this.elements;
+
+        if (!promoBanner) {
+            return;
+        }
+
+        const text = typeof promo?.text === 'string' ? promo.text.trim() : '';
+
+        if (!promo?.enabled || !text) {
+            promoBanner.hidden = true;
+            return;
+        }
+
+        promoBanner.textContent = text;
+        promoBanner.hidden = false;
     }
 
     destroy() {

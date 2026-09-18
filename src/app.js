@@ -16,7 +16,7 @@ import { ThankYouTemplates } from './ai/ThankYouTemplates.js';
 import { ServicePolicy } from './rules/ServicePolicy.js';
 import { createLedgerSaver, loadLedger } from './rules/ledgerStore.js';
 import { decorateMenu, normalizeGifts } from './rules/giftCatalog.js';
-import { readStreamerConfig, resolveContact, resolveTiktokUsername } from './config/streamerConfig.js';
+import { readStreamerConfig, resolveContact, resolvePromo, resolveTiktokUsername } from './config/streamerConfig.js';
 
 /* Preferencias del streamer (frase y teléfono). Las claves siguen en .env. */
 const streamer = readStreamerConfig('./streamer.config.json');
@@ -66,6 +66,7 @@ const config = {
      * cada cierto tiempo.
      */
     contact: resolveContact(streamer, process.env),
+    promo: resolvePromo(streamer, process.env),
 
     /* Memoria de apoyo de 24 h (quién regaló y quién ya usó su gratis). */
     supportLedgerFile:
@@ -199,7 +200,8 @@ const gateway = new RealtimeGateway({
     welcome: () => [
         menuEvent(),
         donorBoardEvent(),
-        systemEvent('contact_banner', { contact: config.contact })
+        systemEvent('contact_banner', { contact: config.contact }),
+        { type: 'promo_banner', promo: config.promo }
     ]
 });
 
@@ -626,6 +628,14 @@ tiktok.onEvent(event => {
     if (result.queued) {
 
         gateway.broadcast(event);
+
+        if (event.type === 'comment' && (result.position ?? 0) > 0) {
+            gateway.broadcast({
+                type: 'queue_position',
+                user: event.user,
+                position: result.position
+            });
+        }
 
         console.log(
             `📦 Cola → ${event.type} | ` +

@@ -414,7 +414,30 @@ test('Usuarios distintos → ambos entran a cola', () => {
     assert.equal(processor.queueSize, 2);
 });
 
+// 18. Comentario encolado devuelve position 1-based
+test('Comentario encolado devuelve position ≥ 1', () => {
+    const processor = createProcessor();
+
+    const r1 = processor.process({
+        type: 'comment',
+        content: 'Primera pregunta',
+        user: { id: 'u1' }
+    });
+
+    const r2 = processor.process({
+        type: 'comment',
+        content: 'Segunda pregunta',
+        user: { id: 'u2' }
+    });
+
+    assert.equal(r1.queued, true);
+    assert.ok(r1.position >= 1, 'primer comentario debe tener posición ≥ 1');
+
+    assert.equal(r2.queued, true);
+    assert.ok(r2.position >= 1, 'segundo comentario debe tener posición ≥ 1');
+});
+
 
 console.log(
-    `\n🎯 ${passed}/17 pruebas de EventProcessor superadas correctamente.`
+    `\n🎯 ${passed}/18 pruebas de EventProcessor superadas correctamente.`
 );

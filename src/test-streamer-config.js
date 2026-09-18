@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { DEFAULT_CONTACT, readStreamerConfig, resolveContact, resolveTiktokUsername } from './config/streamerConfig.js';
+import { DEFAULT_CONTACT, readStreamerConfig, resolveContact, resolvePromo, resolveTiktokUsername } from './config/streamerConfig.js';
 
 let passed = 0;
 let total = 0;
@@ -116,6 +116,34 @@ test('Sin usuario en ningún lado lanza error claro', () => {
 
 test('Espacios en blanco no cuentan como usuario', () => {
     assert.throws(() => resolveTiktokUsername({}, { TIKTOK_USERNAME: '   ' }), /TIKTOK_USERNAME/);
+});
+
+// resolvePromo
+
+test('Promo apagada por defecto (sin config)', () => {
+    const promo = resolvePromo({}, {});
+    assert.equal(promo.enabled, false);
+    assert.equal(promo.text, '');
+});
+
+test('Promo activa desde el archivo', () => {
+    const promo = resolvePromo({ promo: { enabled: true, text: 'Horóscopo de la semana' } }, {});
+    assert.equal(promo.enabled, true);
+    assert.equal(promo.text, 'Horóscopo de la semana');
+});
+
+test('Promo sin texto nunca se activa aunque enabled=true', () => {
+    const promo = resolvePromo({ promo: { enabled: true, text: '  ' } }, {});
+    assert.equal(promo.enabled, false);
+});
+
+test('Env var PROMO_TEXT tiene prioridad sobre el archivo', () => {
+    const promo = resolvePromo(
+        { promo: { enabled: true, text: 'Del archivo' } },
+        { PROMO_TEXT: 'Del entorno', PROMO_ENABLED: 'true' }
+    );
+    assert.equal(promo.text, 'Del entorno');
+    assert.equal(promo.enabled, true);
 });
 
 

@@ -147,10 +147,14 @@ export class EventProcessor {
             this.stats.queued++;
         }
 
+        const userId = event.user?.id ?? event.user?.username;
+        const position = userId != null ? this.queue.positionOf(userId) : 0;
+
         return {
             decision,
             queued: true,
-            dropped: result.dropped
+            dropped: result.dropped,
+            position
         };
     }
 

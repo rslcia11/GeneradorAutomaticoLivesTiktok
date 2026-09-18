@@ -101,6 +101,16 @@ export class PriorityQueue {
         return this.items.length >= this.maxSize;
     }
 
+    /** Posición 1-based del usuario en la cola ordenada; 0 si no está. */
+    positionOf(userId) {
+        if (userId == null) return 0;
+        const index = this.items.findIndex(entry => {
+            const u = entry.item?.event?.user;
+            return (u?.id ?? u?.username) === userId;
+        });
+        return index === -1 ? 0 : index + 1;
+    }
+
     hasUser(userId) {
         if (userId == null) return false;
         return this.items.some(entry => {

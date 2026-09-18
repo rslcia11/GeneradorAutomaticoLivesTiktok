@@ -254,7 +254,31 @@ test('hasUser(null) → false', () => {
     assert.equal(queue.hasUser(undefined), false);
 });
 
+// 19. positionOf devuelve posición 1-based en orden de prioridad
+test('positionOf() devuelve posición 1-based en orden de prioridad', () => {
+    const queue = new PriorityQueue();
+
+    queue.enqueue({ event: { user: { id: 'low' } } }, 30);
+    queue.enqueue({ event: { user: { id: 'high' } } }, 80);
+    queue.enqueue({ event: { user: { id: 'mid' } } }, 50);
+
+    /* alta prioridad primero */
+    assert.equal(queue.positionOf('high'), 1);
+    assert.equal(queue.positionOf('mid'), 2);
+    assert.equal(queue.positionOf('low'), 3);
+});
+
+// 20. positionOf devuelve 0 si el usuario no está en la cola
+test('positionOf() → 0 cuando el usuario no está', () => {
+    const queue = new PriorityQueue();
+
+    queue.enqueue({ event: { user: { id: 'u1' } } }, 50);
+
+    assert.equal(queue.positionOf('u999'), 0);
+    assert.equal(queue.positionOf(null), 0);
+});
+
 
 console.log(
-    `\n🎯 ${passed}/18 pruebas de PriorityQueue superadas correctamente.`
+    `\n🎯 ${passed}/20 pruebas de PriorityQueue superadas correctamente.`
 );

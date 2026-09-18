@@ -43,6 +43,19 @@ const asNumber = (value, fallback) => {
 };
 
 /**
+ * Promoción fija del overlay (streamer.config.json → promo o env PROMO_*).
+ * Apagada por defecto: el streamer la activa añadiendo texto.
+ */
+export function resolvePromo(file = {}, env = {}) {
+    const fromFile = file.promo ?? {};
+    const text = (env.PROMO_TEXT ?? fromFile.text ?? '').toString().trim();
+    const enabled = text.length > 0 && (env.PROMO_ENABLED !== undefined
+        ? asBoolean(env.PROMO_ENABLED)
+        : asBoolean(fromFile.enabled));
+    return { enabled, text };
+}
+
+/**
  * Usuario de TikTok del streamer.
  * Prioridad: TIKTOK_USERNAME en .env > tiktokUsername en streamer.config.json.
  * Lanza si no está configurado en ninguno de los dos.

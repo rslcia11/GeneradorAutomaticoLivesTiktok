@@ -60,6 +60,8 @@ html {
 body {
     overflow: hidden;
 
+
+
     font-family:
         Inter,
         "Segoe UI",
@@ -79,14 +81,34 @@ body {
    ESCENA
    ============================================================ */
 
+/*
+ * Escenario FIJO 9:16 (540 × 960), el mismo lienzo que ve TikTok.
+ * stage.js lo escala entero para caber en la ventana: en OBS a
+ * 1080 × 1920 es ×2, en un celular o en un monitor horizontal se
+ * achica igual que el reproductor de TikTok. La composición nunca
+ * cambia según la pantalla.
+ */
 .live-scene {
-    position: relative;
+    /*
+     * Centrado con posición fija: una rejilla agrandaría su columna al
+     * tamaño del escenario y lo dejaría corrido cuando la ventana es
+     * más chica que 540 px (un celular).
+     */
+    position: fixed;
 
-    width: 100vw;
-    height: 100vh;
+    top: 50%;
+    left: 50%;
 
-    min-width: 280px;
-    min-height: 500px;
+    width: 540px;
+    height: 960px;
+
+    transform:
+        translate(-50%, -50%)
+        scale(var(--stage-scale, 1));
+
+    /* Las medidas internas usan cqw/cqh: relativas al escenario. */
+    container-type: size;
+    container-name: stage;
 
     overflow: hidden;
     isolation: isolate;
@@ -300,7 +322,7 @@ body {
 
     z-index: 50;
 
-    max-width: 42vw;
+    max-width: 42cqw;
 
     padding:
         9px 14px;
@@ -402,7 +424,7 @@ body {
 
     width:
         min(
-            104vw,
+            104cqw,
             1120px
         );
 
@@ -1438,11 +1460,7 @@ body {
         var(--gold-bright);
 
     font-size:
-        clamp(
-            16px,
-            3vw,
-            34px
-        );
+        16.2px;
 
     text-shadow:
         0 0 10px
@@ -1561,11 +1579,7 @@ body {
         var(--ivory-soft);
 
     font-size:
-        clamp(
-            11px,
-            1.5vw,
-            14px
-        );
+        11px;
 
     font-weight: 650;
 
@@ -1664,11 +1678,7 @@ body {
         var(--gold);
 
     font-size:
-        clamp(
-            13px,
-            1.6vw,
-            16px
-        );
+        13px;
 
     font-weight: 800;
 
@@ -1684,11 +1694,7 @@ body {
         var(--ivory);
 
     font-size:
-        clamp(
-            15px,
-            2vw,
-            20px
-        );
+        15px;
 
     font-weight: 500;
 
@@ -1747,11 +1753,7 @@ body {
         var(--ivory);
 
     font-size:
-        clamp(
-            13px,
-            1.7vw,
-            16px
-        );
+        13px;
 
     font-weight: 800;
 
@@ -1807,139 +1809,116 @@ body {
 
 
 /* ============================================================
-   VERTICAL 9:16
+   COMPOSICIÓN VERTICAL 9:16 (base)
    ============================================================ */
 
-@media (max-aspect-ratio: 10 / 16) {
+.avatar-container {
+    top: 6%;
 
-    .avatar-container {
-        top: 6%;
-
-        width: 112vw;
-        height: 77%;
-    }
-
-    .avatar-status {
-        bottom: 20%;
-    }
-
-    .comment-card {
-        bottom: 4%;
-
-        width: 91%;
-    }
-
-    .event-notification {
-        top: 9%;
-    }
+    width: 112cqw;
+    height: 77%;
 }
 
-
-/* ============================================================
-   MONITOR HORIZONTAL / DESARROLLO
-
-   Importante:
-   ya NO reducimos el avatar a 48vw.
-   Mantenemos presencia visual aunque probemos desde desktop.
-   ============================================================ */
-
-@media (min-aspect-ratio: 1 / 1) {
-
-    .live-scene {
-        /*
-         * El navegador puede ser horizontal,
-         * pero seguimos componiendo el personaje
-         * como una escena vertical.
-         */
-        --portrait-reference:
-            min(
-                100vh,
-                100vw
-            );
-    }
-
-    .avatar-container {
-        top: 4%;
-
-        width:
-            min(
-                74vw,
-                900px
-            );
-
-        height: 79%;
-    }
-
-    .avatar-status {
-        bottom: 18.5%;
-    }
-
-    .comment-card {
-        bottom: 3%;
-
-        width:
-            min(
-                64vw,
-                720px
-            );
-    }
-
-    .event-notification {
-        top: 8%;
-    }
+.avatar-status {
+    bottom: 20%;
 }
 
+.comment-card {
+    bottom: 5.5%;
 
-/* ============================================================
-   PANTALLAS PEQUEÃ‘AS
-   ============================================================ */
-
-@media (max-width: 520px) {
-
-    .connection-status {
-        top: 12px;
-        left: 12px;
-
-        padding:
-            7px 10px;
-
-        font-size: 11px;
-    }
-
-    .live-stats {
-        top: 12px;
-        right: 12px;
-
-        gap: 5px;
-    }
-
-    .stat {
-        min-width: 56px;
-
-        padding:
-            7px 9px;
-
-        font-size: 12px;
-    }
-
-    .avatar-container {
-        width: 116vw;
-    }
-
-    .comment-card {
-        min-height: 82px;
-
-        padding:
-            14px 16px;
-
-        border-radius: 17px;
-    }
+    width: 91%;
 }
 
+.event-notification {
+    top: 9%;
+}
 
 /* ============================================================
    REDUCED MOTION
    ============================================================ */
+
+/* ============================================================
+   LLAMADO A PARTICIPAR Y AVISO LEGAL
+   ============================================================ */
+
+.free-call {
+    position: absolute;
+    z-index: 50;
+
+    /* Sobre las notificaciones de regalos (top: 9%), que son opacas. */
+    top: 5.4%;
+    left: 50%;
+    transform: translateX(-50%);
+
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+
+    padding: 0.35em 1.1em;
+
+    border: 1.5px solid transparent;
+    border-radius: 999px;
+
+    background:
+        linear-gradient(135deg, rgba(92, 36, 150, 0.95), rgba(28, 10, 56, 0.95)) padding-box,
+        var(--hud-gold-edge) border-box;
+
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+
+    color: #ffeec2;
+    font-size: 2.5cqw;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+
+    animation: free-call-pulse 3.4s ease-in-out infinite;
+}
+
+.free-call strong {
+    color: #ffd35a;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.free-call__spark {
+    color: #f6d38a;
+    font-size: 0.8em;
+}
+
+@keyframes free-call-pulse {
+    0%,
+    100% {
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    }
+
+    50% {
+        box-shadow:
+            0 6px 20px rgba(0, 0, 0, 0.45),
+            0 0 26px rgba(255, 200, 110, 0.45);
+    }
+}
+
+/*
+ * Aviso obligatorio: TikTok pide etiquetar el contenido generado por IA.
+ * Discreto pero legible; nunca se tapa con la tarjeta del comentario.
+ */
+.scene-disclaimer {
+    position: absolute;
+    z-index: 40;
+
+    bottom: 0.7%;
+    left: 50%;
+    transform: translateX(-50%);
+
+    width: 92%;
+
+    color: rgba(255, 249, 237, 0.55);
+    font-size: 1.75cqw;
+    line-height: 1.3;
+    text-align: center;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
 
 @media (prefers-reduced-motion: reduce) {
 
@@ -2010,4 +1989,611 @@ body {
     font: 12px/1.3 Consolas, monospace;
 
     pointer-events: none;
+}
+
+/* ============================================================
+   HUD DEL LIVE
+   Menu de servicios, ultimos en apoyar y franja de contacto.
+
+   Estilo "reliquia": vidrio morado profundo, filo dorado,
+   brillo que recorre los paneles y filas que entran en cascada.
+   Todo se anima solo con transform/opacity (barato para OBS).
+   ============================================================ */
+
+:root {
+    --hud-title-font: "Cinzel", Georgia, "Times New Roman", serif;
+
+    --hud-gold-edge: linear-gradient(
+        135deg,
+        #fff1c4 0%,
+        #d9a441 28%,
+        #8a5a1c 50%,
+        #f6d38a 72%,
+        #fff1c4 100%
+    );
+
+    --hud-panel: linear-gradient(
+        160deg,
+        rgba(58, 24, 98, 0.94) 0%,
+        rgba(28, 10, 56, 0.94) 55%,
+        rgba(12, 5, 28, 0.95) 100%
+    );
+
+    --hud-row: linear-gradient(
+        180deg,
+        rgba(120, 70, 200, 0.42) 0%,
+        rgba(64, 28, 118, 0.5) 48%,
+        rgba(40, 14, 80, 0.6) 100%
+    );
+}
+
+.service-menu,
+.donor-board {
+    position: absolute;
+    z-index: 45;
+
+    /* Todo el panel escala con el ancho de la pantalla (em). */
+    font-size: 2.15cqw;
+
+    width: 15em;
+    max-width: 34%;
+
+    padding: 0.75em 0.55em 0.6em;
+
+    border: 1.5px solid transparent;
+    border-radius: 1.15em;
+
+    /* Filo dorado: fondo del panel + degradé dorado en el borde. */
+    background:
+        var(--hud-panel) padding-box,
+        var(--hud-gold-edge) border-box;
+
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.35),
+        0 0 26px rgba(var(--violet), 0.45),
+        0 18px 40px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 240, 200, 0.18);
+
+    color: var(--ivory);
+
+    overflow: hidden;
+
+    animation: hud-panel-in 0.9s cubic-bezier(0.2, 0.9, 0.25, 1.2) both;
+}
+
+/* Brillo que cruza el panel cada tanto. */
+.service-menu::after,
+.donor-board::after {
+    content: "";
+
+    position: absolute;
+    inset: -40% -60%;
+
+    background: linear-gradient(
+        105deg,
+        transparent 42%,
+        rgba(255, 236, 180, 0.16) 49%,
+        rgba(255, 255, 255, 0.28) 50%,
+        rgba(255, 236, 180, 0.16) 51%,
+        transparent 58%
+    );
+
+    transform: translateX(-60%);
+
+    animation: hud-sheen 7s ease-in-out 1.2s infinite;
+
+    pointer-events: none;
+}
+
+.service-menu {
+    top: 11%;
+    right: 3%;
+}
+
+.donor-board {
+    top: 11%;
+    left: 3%;
+
+    animation-delay: 0.15s;
+}
+
+.donor-board::after {
+    animation-delay: 4.5s;
+}
+
+.service-menu__title,
+.donor-board__title {
+    position: relative;
+
+    margin: 0 0 0.65em;
+
+    /* Arriba deja lugar a las tildes: el dorado recorta el texto a su caja. */
+    padding: 0.2em 0 0.5em;
+
+    font-family: var(--hud-title-font);
+    font-size: 1em;
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: 0.06em;
+    text-align: center;
+    text-transform: uppercase;
+
+    background: linear-gradient(180deg, #fff6d8 10%, #f1c469 55%, #b9812f 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+
+    filter: drop-shadow(0 0 10px rgba(255, 200, 110, 0.35));
+}
+
+/* Filete dorado con un rombo al centro, bajo el título. */
+.service-menu__title::after,
+.donor-board__title::after {
+    content: "✦";
+
+    position: absolute;
+    left: 10%;
+    right: 10%;
+    bottom: -4px;
+
+    height: 10px;
+
+    font-size: 9px;
+    line-height: 10px;
+    text-align: center;
+
+    color: #f6d38a;
+    -webkit-text-fill-color: #f6d38a;
+
+    background:
+        linear-gradient(90deg, transparent, rgba(246, 211, 138, 0.8) 42%, transparent 44%, transparent 56%, rgba(246, 211, 138, 0.8) 58%, transparent)
+        center / 100% 1px no-repeat;
+}
+
+.service-menu__list,
+.donor-board__list {
+    position: relative;
+    z-index: 1;
+
+    margin: 0;
+    padding: 0;
+
+    list-style: none;
+
+    display: grid;
+    gap: 0.4em;
+}
+
+.service-menu__item,
+.donor-board__item {
+    position: relative;
+
+    display: grid;
+    align-items: center;
+    gap: 0.1em 0.5em;
+
+    padding: 0.3em 0.55em 0.3em 0.3em;
+
+    border: 1px solid transparent;
+    border-radius: 999px;
+
+    background:
+        var(--hud-row) padding-box,
+        linear-gradient(90deg, rgba(246, 211, 138, 0.75), rgba(246, 211, 138, 0.15) 60%, rgba(246, 211, 138, 0.55)) border-box;
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        0 4px 12px rgba(0, 0, 0, 0.3);
+
+    font-size: 0.8em;
+    line-height: 1.15;
+
+    /* Cascada: cada fila entra --i × 90 ms después de la anterior. */
+    animation: hud-row-in 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+    animation-delay: calc(0.35s + var(--i, 0) * 0.09s);
+}
+
+.service-menu__item {
+    /* minmax(0, 1fr): el texto se achica en vez de empujar el precio afuera. */
+    grid-template-columns: 2.7em minmax(0, 1fr) auto;
+    grid-template-areas:
+        "media label price"
+        "media gift  price";
+}
+
+.service-menu__icon,
+.service-menu__gift {
+    grid-area: media;
+
+    width: 2.7em;
+    height: 2.7em;
+
+    border-radius: 50%;
+
+    background: radial-gradient(circle at 50% 40%, rgba(255, 230, 170, 0.35), rgba(80, 36, 140, 0.2) 65%, transparent 72%);
+}
+
+.service-menu__icon {
+    display: grid;
+    place-items: center;
+
+    font-size: 1.45em;
+
+    /* Mismo círculo que la imagen: 2.7em del padre ÷ 1.45. */
+    width: 1.86em;
+    height: 1.86em;
+}
+
+/* El regalo original de TikTok, flotando con un halo. */
+.service-menu__gift {
+    object-fit: contain;
+
+    padding: 0.15em;
+
+    filter: drop-shadow(0 0 7px rgba(255, 214, 140, 0.55));
+
+    animation: hud-gift-float 3.2s ease-in-out infinite;
+    animation-delay: calc(var(--i, 0) * -0.6s);
+}
+
+.service-menu__label {
+    grid-area: label;
+
+    align-self: end;
+
+    font-weight: 700;
+    color: var(--ivory);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.service-menu__gift-name {
+    grid-area: gift;
+
+    align-self: start;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    font-size: 0.78em;
+    color: rgba(255, 230, 170, 0.8);
+}
+
+/* Sin nombre de regalo, la etiqueta ocupa las dos líneas. */
+.service-menu__item:not(:has(.service-menu__gift-name)) .service-menu__label {
+    grid-row: 1 / span 2;
+    align-self: center;
+}
+
+/* Precio: moneda dorada + número. */
+.service-menu__price {
+    grid-area: price;
+
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+
+    padding: 0.2em 0.5em 0.2em 0.25em;
+
+    border-radius: 999px;
+
+    background: linear-gradient(180deg, rgba(20, 8, 40, 0.75), rgba(40, 16, 70, 0.75));
+    box-shadow: inset 0 0 0 1px rgba(246, 211, 138, 0.45);
+
+    color: #ffe39a;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.service-menu__price::before {
+    content: "";
+
+    width: 1em;
+    height: 1em;
+
+    border-radius: 50%;
+
+    background:
+        radial-gradient(circle at 35% 30%, #fff6c9 0 18%, transparent 20%),
+        radial-gradient(circle, #ffd35a 0 55%, #c88a12 58% 70%, #ffe08a 72%);
+
+    box-shadow: 0 0 6px rgba(255, 200, 80, 0.7);
+}
+
+/* ─── Últimos en apoyar ─────────────────────────────────────── */
+
+.donor-board__item {
+    grid-template-columns: 1.6em auto minmax(0, 1fr) auto;
+    grid-template-areas:
+        "rank image name coins"
+        "rank image gift coins";
+
+    padding-left: 0.3em;
+}
+
+.donor-board__rank {
+    grid-area: rank;
+
+    display: grid;
+    place-items: center;
+
+    width: 1.5em;
+    height: 1.5em;
+
+    border-radius: 50%;
+
+    background: rgba(12, 5, 28, 0.7);
+    box-shadow: inset 0 0 0 1px rgba(246, 211, 138, 0.45);
+
+    color: #ffe39a;
+    font-family: var(--hud-title-font);
+    font-size: 0.8em;
+    font-weight: 700;
+}
+
+.donor-board__gift-image {
+    grid-area: image;
+
+    width: 1.9em;
+    height: 1.9em;
+
+    object-fit: contain;
+
+    filter: drop-shadow(0 0 5px rgba(255, 214, 140, 0.5));
+}
+
+.donor-board__name {
+    grid-area: name;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    font-weight: 700;
+}
+
+.donor-board__gift {
+    grid-area: gift;
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    color: rgba(255, 230, 170, 0.78);
+    font-size: 0.8em;
+}
+
+.donor-board__coins {
+    grid-area: coins;
+
+    color: #ffe39a;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+/* El primero de la tabla: fila dorada. */
+.donor-board__item:first-child {
+    background:
+        linear-gradient(180deg, rgba(190, 130, 40, 0.5), rgba(110, 50, 150, 0.55)) padding-box,
+        var(--hud-gold-edge) border-box;
+
+    box-shadow:
+        0 0 16px rgba(255, 200, 100, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.donor-board__item:first-child .donor-board__rank {
+    background: transparent;
+    box-shadow: none;
+
+    font-size: 1.1em;
+}
+
+/* El regalo más reciente entra con un destello. */
+.donor-board__item--new {
+    animation:
+        hud-row-in 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.25) both,
+        donor-flash 1.8s ease-out 0.2s;
+}
+
+.donor-board__empty {
+    padding: 0.8em 0.6em;
+
+    border-radius: 0.9em;
+
+    background: rgba(var(--violet), 0.12);
+
+    color: rgba(255, 230, 170, 0.85);
+    font-size: 0.85em;
+    text-align: center;
+
+    animation: hud-breathe 3s ease-in-out infinite;
+}
+
+/* ============================================================
+   FRANJA DE CONTACTO
+   Aparece unos segundos y se va (nunca queda fija).
+   ============================================================ */
+
+.contact-banner {
+    position: absolute;
+    z-index: 55;
+
+    left: 50%;
+
+    /* Sobre el cartel de estado (bottom: 20%): nunca se encima. */
+    bottom: 27%;
+
+    max-width: 86%;
+
+    padding: 0.6em 1.2em;
+
+    border: 1.5px solid transparent;
+    border-radius: 999px;
+
+    background:
+        linear-gradient(135deg, rgba(64, 26, 110, 0.96), rgba(18, 7, 38, 0.96)) padding-box,
+        var(--hud-gold-edge) border-box;
+
+    color: #fff0c2;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+
+    box-shadow:
+        0 0 30px rgba(255, 200, 110, 0.35),
+        0 14px 34px rgba(0, 0, 0, 0.5);
+
+    overflow: hidden;
+
+    opacity: 0;
+    transform: translate(-50%, 16px) scale(0.92);
+
+    transition:
+        opacity 0.5s ease,
+        transform 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+
+.contact-banner::after {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    background: linear-gradient(
+        105deg,
+        transparent 35%,
+        rgba(255, 255, 255, 0.35) 50%,
+        transparent 65%
+    );
+
+    transform: translateX(-120%);
+
+    pointer-events: none;
+}
+
+.contact-banner--visible {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+
+    animation: contact-glow 2.4s ease-in-out infinite;
+}
+
+.contact-banner--visible::after {
+    animation: contact-sheen 2.8s ease-in-out 0.4s infinite;
+}
+
+/* ─── Animaciones ───────────────────────────────────────────── */
+
+@keyframes hud-panel-in {
+    from {
+        opacity: 0;
+        transform: translateY(-14px) scale(0.94);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes hud-row-in {
+    from {
+        opacity: 0;
+        transform: translateX(18px) scale(0.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes hud-sheen {
+    0%,
+    70% {
+        transform: translateX(-60%);
+    }
+
+    100% {
+        transform: translateX(60%);
+    }
+}
+
+@keyframes hud-gift-float {
+    0%,
+    100% {
+        transform: translateY(0) rotate(-3deg);
+    }
+
+    50% {
+        transform: translateY(-3px) rotate(3deg);
+    }
+}
+
+@keyframes donor-flash {
+    0% {
+        filter: brightness(1.9) saturate(1.3);
+    }
+
+    100% {
+        filter: none;
+    }
+}
+
+@keyframes hud-breathe {
+    0%,
+    100% {
+        opacity: 0.75;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}
+
+@keyframes contact-glow {
+    0%,
+    100% {
+        box-shadow:
+            0 0 22px rgba(255, 200, 110, 0.3),
+            0 14px 34px rgba(0, 0, 0, 0.5);
+    }
+
+    50% {
+        box-shadow:
+            0 0 40px rgba(255, 200, 110, 0.6),
+            0 14px 34px rgba(0, 0, 0, 0.5);
+    }
+}
+
+@keyframes contact-sheen {
+    0% {
+        transform: translateX(-120%);
+    }
+
+    60%,
+    100% {
+        transform: translateX(120%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .service-menu,
+    .donor-board,
+    .service-menu::after,
+    .donor-board::after,
+    .service-menu__item,
+    .donor-board__item,
+    .service-menu__gift,
+    .donor-board__empty,
+    .contact-banner--visible,
+    .contact-banner--visible::after {
+        animation: none;
+    }
+
+    .contact-banner {
+        transition: none;
+    }
 }

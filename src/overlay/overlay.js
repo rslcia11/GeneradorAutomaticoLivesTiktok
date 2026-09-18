@@ -1,7 +1,13 @@
 import { TarotAvatar } from './TarotAvatar.js';
 import { InteractionPresenter } from './InteractionPresenter.js';
 import { SpeechPlayer } from './SpeechPlayer.js';
+import { Hud } from './hud.js';
+import { formatNumber } from './format.js';
 import { startDebugTools } from './debugTools.js';
+import { fitStage } from './stage.js';
+
+/* Primero el escenario: todo lo demás se mide dentro de él. */
+fitStage();
 
 /* IP directa: el backend solo escucha en 127.0.0.1 ("localhost" podría ir a ::1). */
 const WS_URL = 'ws://127.0.0.1:8080';
@@ -32,7 +38,22 @@ const elements = {
         document.getElementById('comment-content'),
 
     notification:
-        document.getElementById('event-notification')
+        document.getElementById('event-notification'),
+
+    serviceMenu:
+        document.getElementById('service-menu'),
+
+    serviceMenuList:
+        document.getElementById('service-menu-list'),
+
+    donorBoard:
+        document.getElementById('donor-board'),
+
+    donorBoardList:
+        document.getElementById('donor-board-list'),
+
+    contactBanner:
+        document.getElementById('contact-banner')
 };
 
 validateRequiredElements();
@@ -48,6 +69,9 @@ const avatar = new TarotAvatar({
  * hasta el primer clic/tecla (en OBS no pasa).
  */
 const speech = new SpeechPlayer();
+
+/* Menú de servicios, últimos en apoyar y franja de contacto. */
+const hud = new Hud({ elements });
 
 /*
  * Respuesta cuya voz controla la boca. Mientras exista, la boca
@@ -305,6 +329,11 @@ function handleEvent(event) {
             event
         );
 
+        return;
+    }
+
+    /* Paneles del HUD (menú, donantes, contacto). */
+    if (hud.handle(event)) {
         return;
     }
 
@@ -898,21 +927,6 @@ function positiveInteger(
     );
 }
 
-function formatNumber(value) {
-
-    const number =
-        Number(value);
-
-    if (
-        !Number.isFinite(number)
-    ) {
-        return String(value);
-    }
-
-    return new Intl.NumberFormat(
-        'es-EC'
-    ).format(number);
-}
 
 
 /* ============================================================
@@ -933,6 +947,7 @@ function shutdownOverlay() {
 
     presenter.reset();
     speech.destroy();
+    hud.destroy();
 
     animatedAvatar?.destroy();
     animatedAvatar = null;

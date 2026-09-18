@@ -15,6 +15,14 @@
 
     <title>Tarot de Beto — Live Avatar</title>
 
+    <!-- Títulos del HUD. Sin internet se usa Georgia. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&display=swap"
+    >
+
     <link
         rel="stylesheet"
         href="./styles.css"
@@ -285,6 +293,86 @@
             </div>
 
         </section>
+
+
+        <!-- =====================================================
+             MENÚ DE SERVICIOS
+
+             Lo llena hud.js con el catálogo que envía el backend
+             (src/rules/serviceCatalog.js): un solo lugar define
+             los precios y aquí se muestran.
+             ===================================================== -->
+
+        <aside
+            id="service-menu"
+            class="service-menu"
+            hidden
+        >
+            <h2 class="service-menu__title">Desbloquea tu lectura</h2>
+
+            <ul
+                id="service-menu-list"
+                class="service-menu__list"
+            ></ul>
+        </aside>
+
+
+        <!-- =====================================================
+             ÚLTIMOS EN APOYAR
+             ===================================================== -->
+
+        <aside
+            id="donor-board"
+            class="donor-board"
+            hidden
+        >
+            <h2 class="donor-board__title">Últimos en apoyar</h2>
+
+            <ol
+                id="donor-board-list"
+                class="donor-board__list"
+            ></ol>
+        </aside>
+
+
+        <!-- =====================================================
+             CONTACTO
+
+             Aparece unos segundos cada cierto tiempo, solo si
+             está configurado en el .env del backend.
+             ===================================================== -->
+
+        <div
+            id="contact-banner"
+            class="contact-banner"
+            hidden
+        ></div>
+
+
+        <!-- =====================================================
+             LLAMADO A PARTICIPAR
+
+             Dice lo que el sistema de verdad da gratis
+             (src/rules/ServicePolicy.js: 1 respuesta cada 24 h).
+             ===================================================== -->
+
+        <div class="free-call">
+            <span class="free-call__spark" aria-hidden="true">✦</span>
+            1 pregunta <strong>gratis</strong> al día
+            <span class="free-call__spark" aria-hidden="true">✦</span>
+        </div>
+
+
+        <!-- =====================================================
+             AVISO
+
+             TikTok exige etiquetar el contenido generado por IA.
+             ===================================================== -->
+
+        <footer class="scene-disclaimer">
+            Avatar y contenido generados por IA ·
+            Las lecturas no sustituyen asesoría médica, psicológica ni legal
+        </footer>
 
 
         <!-- =====================================================

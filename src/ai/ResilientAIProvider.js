@@ -83,7 +83,9 @@ export class ResilientAIProvider {
                 attempts.push({
                     providerIndex: index,
                     code: error?.code ?? 'UNKNOWN',
-                    status: error?.status ?? null
+                    status: error?.status ?? null,
+                    message: error?.message ?? null,
+                    retryAfterMs: error?.retryAfterMs ?? null
                 });
 
                 const hasNextProvider =
@@ -95,9 +97,45 @@ export class ResilientAIProvider {
                     this.shouldFallback(error);
 
                 if (!canFallback) {
+                    const allRateLimited =
+                        attempts.length > 0 &&
+                        attempts.every(
+                            a =>
+                                a.code === 'GEMINI_RATE_LIMITED' ||
+                                (a.code === 'GEMINI_HTTP_ERROR' &&
+                                    a.status === 429)
+                        );
+
+                    if (allRateLimited) {
+                        const retryAfterMs = Math.min(
+                            ...attempts.map(
+                                a => a.retryAfterMs ?? 60_000
+                            )
+                        );
+
+                        const blockedError = new Error(
+                            'Todos los proveedores de IA tienen la cuota agotada'
+                        );
+
+                        blockedError.code = 'AI_ALL_BLOCKED';
+                        blockedError.retryAfterMs = retryAfterMs;
+
+                        this.stats.failed++;
+
+                        throw blockedError;
+                    }
+
                     this.stats.failed++;
                     throw error;
                 }
+
+                console.warn(
+                    `⚠️ Provider ${index} falló` +
+                    ` | code=${error?.code ?? 'UNKNOWN'}` +
+                    ` | status=${error?.status ?? '-'}` +
+                    ` | ${error?.message ?? ''}` +
+                    ` | usando provider ${index + 1}...`
+                );
 
                 this.stats.fallbacks++;
             }
@@ -132,6 +170,10 @@ export class ResilientAIProvider {
          * Fallos temporales o de capacidad:
          * tiene sentido intentar otro provider/modelo.
          */
+        if (error?.code === 'GEMINI_RATE_LIMITED') {
+            return true;
+        }
+
         if (
             error?.code === 'GEMINI_TIMEOUT' ||
             error?.code === 'AI_TIMEOUT'

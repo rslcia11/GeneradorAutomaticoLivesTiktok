@@ -326,7 +326,9 @@ await test(
             {
                 providerIndex: 0,
                 code: 'GEMINI_HTTP_ERROR',
-                status: 503
+                status: 503,
+                message: 'Provider failed',
+                retryAfterMs: null
             }
         );
     }
@@ -442,6 +444,136 @@ await test(
                 }),
             /generate/
         );
+    }
+);
+
+await test(
+    'GEMINI_RATE_LIMITED → hace fallback al siguiente provider',
+    async () => {
+        const provider = new ResilientAIProvider({
+            providers: [
+                errorProvider({ code: 'GEMINI_RATE_LIMITED', message: 'Bloqueado' }),
+                successProvider('fallback-rate-limited')
+            ]
+        });
+
+        const result = await provider.generate({});
+
+        assert.equal(result.text, 'fallback-rate-limited');
+        assert.equal(result.metadata.resilience.fallbackUsed, true);
+    }
+);
+
+await test(
+    'Ambos providers GEMINI_RATE_LIMITED → lanza AI_ALL_BLOCKED con min retryAfterMs',
+    async () => {
+        function rateLimitedProvider(retryAfterMs) {
+            return {
+                async generate() {
+                    const error = new Error('Rate limited');
+                    error.code = 'GEMINI_RATE_LIMITED';
+                    error.retryAfterMs = retryAfterMs;
+                    throw error;
+                }
+            };
+        }
+
+        const provider = new ResilientAIProvider({
+            providers: [
+                rateLimitedProvider(14_000),
+                rateLimitedProvider(8_000)
+            ]
+        });
+
+        await assert.rejects(
+            () => provider.generate({}),
+            error => {
+                assert.equal(error.code, 'AI_ALL_BLOCKED');
+                assert.equal(error.retryAfterMs, 8_000);
+                return true;
+            }
+        );
+    }
+);
+
+await test(
+    'Error mixto (503 + GEMINI_RATE_LIMITED) → NO lanza AI_ALL_BLOCKED',
+    async () => {
+        const provider = new ResilientAIProvider({
+            providers: [
+                errorProvider({ code: 'GEMINI_HTTP_ERROR', status: 503 }),
+                errorProvider({ code: 'GEMINI_RATE_LIMITED', message: 'Rate limited' })
+            ]
+        });
+
+        await assert.rejects(
+            () => provider.generate({}),
+            error => {
+                assert.notEqual(error.code, 'AI_ALL_BLOCKED');
+                return true;
+            }
+        );
+    }
+);
+
+await test(
+    'Fallback loguea warning con código y proveedor',
+    async () => {
+        const warnings = [];
+        const originalWarn = console.warn;
+        console.warn = (...args) => warnings.push(args.join(' '));
+
+        try {
+            const provider = new ResilientAIProvider({
+                providers: [
+                    errorProvider({ code: 'GEMINI_TIMEOUT', message: 'Tardó mucho' }),
+                    successProvider('ok')
+                ]
+            });
+
+            await provider.generate({});
+
+            assert.ok(warnings.length > 0, 'Debe emitir al menos un warning');
+            assert.ok(
+                warnings[0].includes('Provider 0'),
+                `Warning debe mencionar "Provider 0". Recibido: "${warnings[0]}"`
+            );
+            assert.ok(
+                warnings[0].includes('GEMINI_TIMEOUT'),
+                `Warning debe incluir el código. Recibido: "${warnings[0]}"`
+            );
+        } finally {
+            console.warn = originalWarn;
+        }
+    }
+);
+
+await test(
+    'AI_ALL_BLOCKED contabiliza en stats.failed',
+    async () => {
+        function rateLimitedProvider() {
+            return {
+                async generate() {
+                    const error = new Error('Rate limited');
+                    error.code = 'GEMINI_RATE_LIMITED';
+                    error.retryAfterMs = 10_000;
+                    throw error;
+                }
+            };
+        }
+
+        const provider = new ResilientAIProvider({
+            providers: [
+                rateLimitedProvider(),
+                rateLimitedProvider()
+            ]
+        });
+
+        try {
+            await provider.generate({});
+        } catch { /* esperado */ }
+
+        assert.equal(provider.getStats().failed, 1);
     }
 );
 

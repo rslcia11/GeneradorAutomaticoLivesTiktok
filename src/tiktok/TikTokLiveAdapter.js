@@ -5,6 +5,9 @@ import {
 
 export class TikTokLiveAdapter {
 
+    #intentionalDisconnect = false;
+    #disconnectHandler = null;
+
     constructor(username) {
         if (!username) {
             throw new Error('TikTok username is required');
@@ -17,6 +20,10 @@ export class TikTokLiveAdapter {
 
     onEvent(handler) {
         this.eventHandler = handler;
+    }
+
+    onDisconnect(handler) {
+        this.#disconnectHandler = handler;
     }
 
     emit(event) {
@@ -173,8 +180,9 @@ export class TikTokLiveAdapter {
             });
         });
 
-        // Fin del LIVE
+        // Fin del LIVE — marcar como desconexión intencional
         this.connection.on(WebcastEvent.STREAM_END, data => {
+            this.#intentionalDisconnect = true;
             this.emit({
                 platform: 'tiktok',
                 type: 'stream_end',
@@ -182,12 +190,19 @@ export class TikTokLiveAdapter {
                 raw: data
             });
         });
+
+        // Desconexión de WebSocket
+        this.connection.on('disconnected', ({ code, reason } = {}) => {
+            this.#disconnectHandler?.({
+                intentional: this.#intentionalDisconnect,
+                code,
+                reason
+            });
+        });
     }
 
     async connect() {
-
         this.registerListeners();
-
         const state = await this.connection.connect();
 
         return {
@@ -197,12 +212,20 @@ export class TikTokLiveAdapter {
         };
     }
 
+    /** Recrea la conexión y vuelve a conectar tras una caída inesperada. */
+    async reconnect() {
+        this.#intentionalDisconnect = false;
+        this.connection = new TikTokLiveConnection(this.username, {});
+        return this.connect();
+    }
+
     /** Lista cruda de regalos de la sala (nombre, precio, imagen). */
     async fetchGifts() {
         return this.connection.fetchAvailableGifts();
     }
 
     disconnect() {
+        this.#intentionalDisconnect = true;
         this.connection.disconnect();
     }
 }

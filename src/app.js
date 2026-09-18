@@ -17,6 +17,7 @@ import { ServicePolicy } from './rules/ServicePolicy.js';
 import { createLedgerSaver, loadLedger } from './rules/ledgerStore.js';
 import { decorateMenu, normalizeGifts } from './rules/giftCatalog.js';
 import { readStreamerConfig, resolveContact, resolvePromo, resolveTiktokUsername } from './config/streamerConfig.js';
+import { logger } from './logger.js';
 
 /* Preferencias del streamer (frase y teléfono). Las claves siguen en .env. */
 const streamer = readStreamerConfig('./streamer.config.json');
@@ -71,7 +72,11 @@ const config = {
     /* Memoria de apoyo de 24 h (quién regaló y quién ya usó su gratis). */
     supportLedgerFile:
         process.env.SUPPORT_LEDGER_FILE?.trim() ||
-        './data/support-ledger.json'
+        './data/support-ledger.json',
+
+    /* Reconexión automática tras caída de red. */
+    reconnectMaxAttempts: 5,
+    reconnectBaseDelayMs: 5000
 };
 
 
@@ -83,16 +88,16 @@ const geminiApiKey =
     process.env.GEMINI_API_KEY?.trim();
 
 if (!geminiApiKey) {
-    console.error(
-        '❌ GEMINI_API_KEY no está configurada.'
-    );
-
-    console.error(
-        'Ejecuta la aplicación con --env-file=.env'
-    );
-
+    logger.error('GEMINI_API_KEY no está configurada. Ejecuta la app con --env-file=.env');
     process.exit(1);
 }
+
+
+/* ============================================================
+   UTILIDADES
+   ============================================================ */
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 
 /* ============================================================
@@ -111,9 +116,7 @@ function refund(decision, event, reason) {
         event
     });
 
-    console.warn(
-        `↩️ Devuelto a @${event?.user?.username}: ${decision.metadata.service.label} (${reason})`
-    );
+    logger.warn(`↩️  Devuelto a @${event?.user?.username}: ${decision.metadata.service.label} (${reason})`);
 }
 
 /* Últimos regalos recibidos, para la tabla del overlay. */
@@ -171,7 +174,7 @@ async function loadRoomGifts() {
         roomGifts = normalizeGifts(await tiktok.fetchGifts());
 
         if (roomGifts.length === 0) {
-            console.warn('⚠️ TikTok no entregó regalos de la sala; el menú usa íconos');
+            logger.warn('TikTok no entregó regalos de la sala; el menú usa íconos');
             return;
         }
 
@@ -180,16 +183,16 @@ async function loadRoomGifts() {
         gateway.broadcast(menu);
 
         for (const service of menu.services) {
-            console.log(
+            logger.debug(
                 `🎁 ${service.label} (${service.coins}) ← ` +
                 (service.tiktokGift
                     ? `regalo "${service.tiktokGift.name}" (${service.tiktokGift.coins})`
-                    : 'ningún regalo de la sala da justo este servicio (se muestra ícono)')
+                    : 'ningún regalo de la sala da justo este servicio')
             );
         }
 
     } catch (error) {
-        console.warn(`⚠️ No se pudo leer la lista de regalos (${error.message}); el menú usa íconos`);
+        logger.warn(`No se pudo leer la lista de regalos (${error.message}); el menú usa íconos`);
     }
 }
 
@@ -408,10 +411,7 @@ const worker = new QueueWorker({
             decision
         } = queueItem;
 
-        console.log(
-            `⚙️ Worker procesando → ${event.type} | ` +
-            `prioridad=${decision.priority}`
-        );
+        logger.debug(`⚙️  Worker → ${event.type} | prioridad=${decision.priority}`);
 
         queueItem.interactionId =
             randomUUID();
@@ -457,24 +457,14 @@ const worker = new QueueWorker({
         const sourceEvent =
             queueItem.event;
 
-        console.log(
-            `✅ IA completó → ${sourceEvent.type}`
-        );
-
-        console.log(
-            `🤖 IA → ${result.text}`
-        );
+        logger.info(`✅ IA completó → ${sourceEvent.type}`);
+        logger.debug(`🤖 ${result.text}`);
 
         const resilience =
             result.metadata?.resilience;
 
-        if (
-            resilience?.fallbackUsed
-        ) {
-            console.warn(
-                `⚠️ IA respondió mediante fallback | ` +
-                `providerIndex=${resilience.providerIndex}`
-            );
+        if (resilience?.fallbackUsed) {
+            logger.warn(`IA respondió mediante fallback | providerIndex=${resilience.providerIndex}`);
         }
 
         const audio =
@@ -546,10 +536,7 @@ const worker = new QueueWorker({
         const sourceEvent =
             queueItem.event;
 
-        console.error(
-            `❌ IA falló → ${sourceEvent.type} | ` +
-            `${error.code ?? 'AI_ERROR'}: ${error.message}`
-        );
+        logger.error(`❌ IA falló → ${sourceEvent.type} | ${error.code ?? 'AI_ERROR'}: ${error.message}`);
 
         /* La IA no respondió: se devuelve lo que se le cobró. */
         if (sourceEvent.type === 'comment') {
@@ -591,9 +578,7 @@ const tiktok =
 
 tiktok.onEvent(event => {
 
-    console.log(
-        `📥 TikTok → ${event.type}`
-    );
+    logger.debug(`📥 TikTok → ${event.type}`);
 
     /*
      * El apoyo se registra ANTES de aplicar las reglas: el regalo
@@ -608,7 +593,7 @@ tiktok.onEvent(event => {
             rememberDonor(event, coins, balance);
             gateway.broadcast(donorBoardEvent());
 
-            console.log(
+            logger.info(
                 `💎 Apoyo → @${event.user?.username} | ` +
                 `regalo "${event.gift?.name}" x${event.gift?.repeatCount ?? 1} = ${coins} ` +
                 `(saldo: ${balance}) → desbloquea ${service.label}`
@@ -637,17 +622,11 @@ tiktok.onEvent(event => {
             });
         }
 
-        console.log(
-            `📦 Cola → ${event.type} | ` +
-            `prioridad=${result.decision.priority} | ` +
-            `tamaño=${processor.queueSize}`
-        );
+        logger.info(`📦 Cola → ${event.type} | prioridad=${result.decision.priority} | tamaño=${processor.queueSize}`);
     }
 
     if (result.dropped) {
-        console.warn(
-            '⚠️ Evento descartado por capacidad de cola'
-        );
+        logger.warn('Evento descartado por capacidad de cola');
     }
 
     /*
@@ -659,7 +638,7 @@ tiktok.onEvent(event => {
     }
 
     if (result.decision.reason === 'free_quota_used') {
-        console.log(
+        logger.info(
             `🚫 @${event.user?.username} ya usó su respuesta gratis ` +
             `(faltan ${result.decision.metadata?.hoursUntilFree?.toFixed(1) ?? '?'} h)`
         );
@@ -671,22 +650,54 @@ tiktok.onEvent(event => {
    START
    ============================================================ */
 
+async function connectWithRetry() {
+    for (let attempt = 1; attempt <= config.reconnectMaxAttempts; attempt++) {
+        try {
+            return await tiktok.connect();
+        } catch (err) {
+            if (attempt === config.reconnectMaxAttempts) throw err;
+            const delay = Math.min(config.reconnectBaseDelayMs * 2 ** (attempt - 1), 120_000);
+            logger.warn(`Conexión fallida (${err.message}), reintentando en ${(delay / 1000).toFixed(0)} s... (${attempt}/${config.reconnectMaxAttempts})`);
+            await sleep(delay);
+        }
+    }
+}
+
 async function start() {
 
     try {
 
-        console.log(
-            '🚀 Iniciando aplicación...'
-        );
+        logger.info('🚀 Iniciando aplicación...');
 
         gateway.start();
 
-        console.log(
-            `🔌 Conectando con @${config.tiktokUsername}...`
-        );
+        logger.info(`🔌 Conectando con @${config.tiktokUsername}...`);
 
-        const session =
-            await tiktok.connect();
+        const session = await connectWithRetry();
+
+        /*
+         * Registrar manejador de desconexión inesperada.
+         * Se ignora si el cierre fue iniciado por el streamer o por STREAM_END.
+         */
+        tiktok.onDisconnect(async ({ intentional }) => {
+            if (intentional || shuttingDown) return;
+            logger.warn('TikTok desconectado inesperadamente, intentando reconectar...');
+            for (let attempt = 1; attempt <= config.reconnectMaxAttempts; attempt++) {
+                const delay = Math.min(config.reconnectBaseDelayMs * 2 ** (attempt - 1), 120_000);
+                logger.info(`Reconexión en ${(delay / 1000).toFixed(0)} s (intento ${attempt}/${config.reconnectMaxAttempts})...`);
+                await sleep(delay);
+                if (shuttingDown) return;
+                try {
+                    await tiktok.reconnect();
+                    logger.info('✅ TikTok reconectado');
+                    return;
+                } catch (err) {
+                    logger.warn(`Intento ${attempt} fallido: ${err.message}`);
+                }
+            }
+            logger.error('No se pudo reconectar con TikTok. Cerrando la aplicación.');
+            shutdown();
+        });
 
         /*
          * El worker comienza únicamente después
@@ -696,64 +707,28 @@ async function start() {
 
         void loadRoomGifts();
 
-        console.log(
-            '✅ TikTok conectado'
-        );
-
-        console.log(
-            `Room ID: ${session.roomId}`
-        );
-
-        console.log(
-            `📡 WebSocket: ws://127.0.0.1:${config.websocketPort}`
-        );
-
-        console.log(
-            `📦 Capacidad de cola: ${config.queueMaxSize}`
-        );
-
-        console.log(
-            '⚙️ QueueWorker iniciado'
-        );
-
-        console.log(
-            `🤖 IA principal: ${config.aiModels.primary}`
-        );
-
-        console.log(
-            `🛟 IA fallback: ${config.aiModels.fallback}`
-        );
-
-        console.log(
-            speechService
-                ? `🗣️ Voz: ${config.tts.voice}`
-                : '🔇 Voz desactivada (TTS_ENABLED=false)'
-        );
-
-        console.log(
-            `🎁 Servicios: ${servicePolicy.menu().map(s => `${s.label} (${s.coins})`).join(' · ')}`
-        );
-
-        console.log(
-            `🆓 Gratis: 1 respuesta cada ${servicePolicy.free.freeEveryHours} h por persona`
-        );
-
-        console.log(
+        logger.info('✅ TikTok conectado');
+        logger.info(`Room ID: ${session.roomId}`);
+        logger.info(`📡 WebSocket: ws://127.0.0.1:${config.websocketPort}`);
+        logger.info(`📦 Capacidad de cola: ${config.queueMaxSize}`);
+        logger.info('⚙️  QueueWorker iniciado');
+        logger.info(`🤖 IA principal: ${config.aiModels.primary}`);
+        logger.info(`🛟 IA fallback: ${config.aiModels.fallback}`);
+        logger.info(speechService
+            ? `🗣️  Voz: ${config.tts.voice}`
+            : '🔇 Voz desactivada (TTS_ENABLED=false)');
+        logger.info(`🎁 Servicios: ${servicePolicy.menu().map(s => `${s.label} (${s.coins})`).join(' · ')}`);
+        logger.info(`🆓 Gratis: 1 respuesta cada ${servicePolicy.free.freeEveryHours} h por persona`);
+        logger.info(
             config.contact.enabled && config.contact.text
                 ? `📞 Contacto: visible ${config.contact.visibleSeconds}s cada ${config.contact.everyMinutes} min`
                 : '📵 Franja de contacto desactivada (streamer.config.json → contact.enabled)'
         );
-
-        console.log(
-            'Esperando eventos...\n'
-        );
+        logger.info('Esperando eventos...\n');
 
     } catch (error) {
 
-        console.error(
-            '❌ Error iniciando aplicación:',
-            error
-        );
+        logger.error(`❌ Error iniciando aplicación: ${error.message}`);
 
         try {
             await worker.stop();
@@ -792,9 +767,7 @@ async function shutdown() {
 
     shuttingDown = true;
 
-    console.log(
-        '\n🛑 Cerrando aplicación...'
-    );
+    logger.info('🛑 Cerrando aplicación...');
 
     try {
 
@@ -809,63 +782,29 @@ async function shutdown() {
          */
         await worker.stop();
 
-        console.log(
-            '📊 EventProcessor:',
-            processor.getStats()
-        );
-
-        console.log(
-            '📊 QueueWorker:',
-            worker.getStats()
-        );
-
-        console.log(
-            '📊 AIService:',
-            aiService.getStats()
-        );
-
-        console.log(
-            '📊 ResilientAIProvider:',
-            aiProvider.getStats()
-        );
-
-        console.log(
-            `📊 Gemini ${config.aiModels.primary}:`,
-            primaryAIProvider.getStats()
-        );
-
-        console.log(
-            `📊 Gemini ${config.aiModels.fallback}:`,
-            fallbackAIProvider.getStats()
-        );
+        logger.info(`📊 EventProcessor: ${JSON.stringify(processor.getStats())}`);
+        logger.info(`📊 QueueWorker: ${JSON.stringify(worker.getStats())}`);
+        logger.info(`📊 AIService: ${JSON.stringify(aiService.getStats())}`);
+        logger.info(`📊 ResilientAIProvider: ${JSON.stringify(aiProvider.getStats())}`);
+        logger.info(`📊 Gemini ${config.aiModels.primary}: ${JSON.stringify(primaryAIProvider.getStats())}`);
+        logger.info(`📊 Gemini ${config.aiModels.fallback}: ${JSON.stringify(fallbackAIProvider.getStats())}`);
 
         if (speechService) {
-            console.log(
-                '📊 Voz:',
-                speechService.getStats()
-            );
+            logger.info(`📊 Voz: ${JSON.stringify(speechService.getStats())}`);
         }
 
-        console.log(
-            '📊 Servicios:',
-            servicePolicy.getStats()
-        );
+        logger.info(`📊 Servicios: ${JSON.stringify(servicePolicy.getStats())}`);
 
         /* La memoria de apoyo de 24 h no debe perderse al cerrar. */
         await ledgerSaver.flush();
 
         await gateway.stop();
 
-        console.log(
-            '✅ Aplicación cerrada correctamente'
-        );
+        logger.info('✅ Aplicación cerrada correctamente');
 
     } catch (error) {
 
-        console.error(
-            '❌ Error durante el cierre:',
-            error.message
-        );
+        logger.error(`❌ Error durante el cierre: ${error.message}`);
     }
 
     process.exit(0);

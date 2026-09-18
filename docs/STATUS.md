@@ -2,6 +2,8 @@
 
 _Última actualización: 2026-09-18. Actualizar al cerrar cualquier cambio relevante._
 
+
+
 ## Dónde estamos
 
 **MVP funcional, probado en LIVEs reales.** El mago responde con IA y voz a comentarios y regalos, cambia de pose según la intención, muestra cartas de tarot en 3D durante las lecturas y celebra follows y shares. Los regalos desbloquean servicios; en pantalla hay menú de regalos, tabla de últimos donantes, aviso de IA y franja de contacto. Todo corre gratis en la PC del streamer con OBS.
@@ -19,7 +21,7 @@ _Última actualización: 2026-09-18. Actualizar al cerrar cualquier cambio relev
 | 5. Escenario responsivo | ✅ Hecho | Lienzo fijo 9:16 escalado: idéntico en OBS, celular y monitor horizontal |
 | 6. Estabilidad de la IA | ⏳ **Siguiente y urgente** | Cuota agotada, modelo principal fallando, sin pausa ante `429` |
 | 7. Arte de la escena | ⏳ Pendiente, requiere decisión | El dueño quiere mago, mesa y fondo "mil veces mejor" |
-| 8. Producción | ⏳ Pendiente | TikTok LIVE Studio, configuración por streamer, logging, reconexión |
+| 8. Producción | 🔄 Parcial | ✅ Logging + reconexión implementados. Pendiente: prueba en TikTok LIVE Studio |
 
 ## Hecho
 
@@ -37,9 +39,12 @@ _Última actualización: 2026-09-18. Actualizar al cerrar cualquier cambio relev
   - **HUD** (`overlay/hud.js`): menú de servicios, últimos 5 donantes, franja de contacto temporizada, llamado "1 pregunta gratis al día" y aviso de contenido generado por IA.
   - Avatar animado con PixiJS (rig de deformación y poses por intención) y avatar CSS de respaldo.
 - **Voz:** `EdgeTTSProvider` + `SpeechService`; si falla, la respuesta sale en texto. El volumen real mueve la boca.
-- **Configuración del streamer:** `streamer.config.json` (no se sube) para frase y teléfono; las claves siguen en `.env`.
+- **Configuración del streamer:** `streamer.config.json` (no se sube) para frase, teléfono, promoción fija y usuario de TikTok. Las claves siguen en `.env`. `TIKTOK_USERNAME` y `PROMO_TEXT/PROMO_ENABLED` también se pueden poner como variables de entorno.
+- **Overlay HUD:** notificación de puesto en la fila ("Puesto #N"), barra de respuesta visible durante el audio, spotlight al revelar cada carta de tarot, banner de promoción configurable. El `queue_position` se emite en cada comentario encolado con `position` 1-based.
+- **Logging estructurado:** `src/logger.js` con niveles `DEBUG/INFO/WARN/ERROR`. Variable de entorno `LOG_LEVEL`. Todos los `console.*` de `app.js` migrados; worker y reglas usan `DEBUG` para no saturar la consola en producción.
+- **Reconexión automática:** si TikTok corta la red durante el LIVE, `TikTokLiveAdapter` detecta el evento `'disconnected'` y `app.js` reintenta hasta 5 veces con backoff exponencial (5 s → 10 s → 20 s → 40 s → 80 s). Si el LIVE termina por `STREAM_END` o el streamer llama a `disconnect()`, no reconecta. Al arrancar, si TikTok rechaza la conexión inicial, también reintenta con el mismo backoff.
 - **Seguridad:** WebSocket solo en `127.0.0.1`, con límite de tamaño y control de memoria; el texto que va a la voz se limpia; solo se cargan imágenes `https`; historial de git sin claves.
-- **Herramientas:** `npm start`, `npm run overlay`, `npm test` (20 suites offline, 288 pruebas) y `node tools/capture-overlay.mjs`.
+- **Herramientas:** `npm start`, `npm run overlay`, `npm test` (23 suites offline, ~340 pruebas) y `node tools/capture-overlay.mjs`.
 
 ## En progreso
 
@@ -109,14 +114,16 @@ _Última actualización: 2026-09-18. Actualizar al cerrar cualquier cambio relev
 | **Carta grande al revelarse** con su nombre | Las cartas 3D ya existen; falta destacar la carta principal en primer plano |
 | **Promoción fija** (tipo "Horóscopo de la semana") | Imagen o pastilla configurable desde `streamer.config.json` |
 
-### 9. Configuración por streamer (multi-usuario)
-- **Problema:** el usuario de TikTok está fijo en el código (`config.tiktokUsername = 'tarotdebeto.co'` en `src/app.js`, y también en `index.js`, `index.poc-events.js` y `src/test-adapter.js`).
-- **Listo cuando:** se lee de `streamer.config.json` o `TIKTOK_USERNAME` con validación, y `.env.example` documenta todas las variables.
+### 9. Configuración por streamer (multi-usuario) ✅
+- `TIKTOK_USERNAME` se lee de `TIKTOK_USERNAME` (env) o `tiktokUsername` (streamer.config.json). Lanza error claro si falta.
+- `PROMO_TEXT`/`PROMO_ENABLED` controlan el banner de promoción desde env o config.
+- `.env.example` documenta todas las variables: `GEMINI_API_KEY`, `TIKTOK_USERNAME`, `LOG_LEVEL`, `TTS_*`, `CONTACT_*`, `PROMO_*`.
 
-### 10. Producción
-- **Probar en TikTok LIVE Studio:** su motor web no está documentado; verificar WebGL, audio y módulos ES.
-- **Reconexión:** hoy, si la cuenta no está en LIVE al iniciar, el proceso termina; tampoco reconecta si se corta la red.
-- **Logging** estructurado con niveles (hoy es `console.*`), **rendimiento** en PCs modestas (existe `?fps=30`) e **instalación** para no técnicos.
+### 10. Producción (parcial)
+- ✅ **Logging estructurado** (`src/logger.js`): niveles DEBUG/INFO/WARN/ERROR, `LOG_LEVEL` env var, 12 pruebas.
+- ✅ **Reconexión automática**: backoff exponencial en arranque y en caída de red. `TikTokLiveAdapter.reconnect()` recrea la conexión; `onDisconnect()` notifica al app.
+- ⏳ **TikTok LIVE Studio:** su motor web no está documentado; verificar WebGL, audio y módulos ES.
+- ⏳ **Instalación para no técnicos** e instalador `.exe`.
 
 ---
 

@@ -15,6 +15,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const SUITES = [
+    'logger',
     'rules',
     'queue',
     'event-processor',

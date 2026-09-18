@@ -71,6 +71,53 @@ Si un término cambia de significado, actualiza su entrada. Si aparece una entid
   - Una pose que no carga no rompe nada: se muestra `base`.
 - **Relacionado:** `selectPose(state, intent)` la elige y **PoseBlender** hace la transición.
 
+### Servicio (service)
+
+- **Definición:** lo que recibe un espectador a cambio de su apoyo: `{ id, label, coins, level, style, cards, menu }` (`src/rules/serviceCatalog.js`).
+- **Invariantes:**
+  - Existe siempre un servicio gratis (`coins: 0`).
+  - `coins` es lo que **cuesta**; `level` es su jerarquía.
+  - `resolveService(catalog, saldo)` elige el de **mayor `level`** que el saldo alcance, **no** el más caro. Por eso un servicio caro con nivel bajo puede volverse inalcanzable.
+  - `service.cards` manda sobre la intención de la IA: una lectura paga **siempre** muestra cartas y una respuesta gratis **nunca**.
+- **Relacionado:** lo decide **ServicePolicy** a partir del **Saldo**.
+
+### Saldo (balance)
+
+- **Definición:** monedas acumuladas por un espectador en las últimas 24 h (`src/rules/SupportLedger.js`).
+- **Invariantes:**
+  - Un regalo compra **una** lectura: al responder se **gasta** el costo del servicio.
+  - El sobrante queda para la próxima pregunta y vence a las 24 h.
+  - Si la respuesta no se entrega (cola llena o IA caída), el saldo se **devuelve** (`ServicePolicy.refund`).
+  - Sin saldo: **una** respuesta corta cada 24 h por persona.
+- **NO es:** una suscripción. Donar no da 24 h de lecturas.
+
+### Regalo de la sala (tiktokGift)
+
+- **Definición:** un regalo real de TikTok con su nombre, imagen y precio, leído de la sala al conectar (`src/rules/giftCatalog.js`).
+- **Invariantes:**
+  - Los precios **no se escriben a mano**: cambian por país y se leen del LIVE.
+  - En el menú, un servicio solo muestra un regalo si enviarlo desbloquea **exactamente** ese servicio.
+  - Solo se muestran imágenes `https`. Si TikTok no responde, el menú usa íconos.
+- **NO confundir** con el campo `gift` del catálogo, que es un texto descriptivo del servicio.
+
+### Escenario (stage)
+
+- **Definición:** el lienzo fijo de 540 × 960 px sobre el que se diseña todo el overlay (`src/overlay/stage.js`), escalado entero para caber en la ventana.
+- **Invariantes:**
+  - La proporción es siempre 9:16, la de TikTok.
+  - Dentro del escenario **no se usan `vw`/`vh`** ni media queries de orientación: se usa `cqw`/`cqh` o píxeles.
+  - El canvas del mago se redibuja a `renderResolution(escala, dpr)` (tope 2) para no verse borroso en OBS.
+- **Relacionado:** la escala viaja en la variable CSS `--stage-scale` y en el evento `stagescale`.
+
+### Acto (phase de las cartas)
+
+- **Definición:** cada tramo de la coreografía de una lectura (`src/overlay/animated/cardChoreography.js`): `summon → shuffle → reveal → hover → dismiss`.
+- **Invariantes:**
+  - Entre acto y acto no hay saltos: cada uno empieza donde terminó el anterior.
+  - `time` se reinicia en cada acto; `clock` corre toda la lectura y gobierna el flotar.
+  - Cerrar una lectura **nunca** destapa una carta que no se había revelado.
+- **Relacionado:** `cardGeometry.js` proyecta la carta en 3D; `tarotCards.js` solo aplica lo que estos deciden.
+
 ### Proveedor (provider)
 
 - **Definición:** adaptador intercambiable a un servicio externo.
@@ -102,4 +149,9 @@ Si un término cambia de significado, actualiza su entrada. Si aparece una entid
 | **Pin** | Zona de la malla que **nunca** se deforma (bola, mesa) | Un deformador |
 | **PoseBlender** | Transición entre poses: la nueva aparece encima y descarta las de abajo | Una mezcla entre todas las poses a la vez |
 | **Cartas flotantes** (FloatingCards) | Arcanos dibujados por código que aparecen solo en `tarot_reading` | Las cartas pintadas sobre la mesa en la imagen |
+| **HUD** | Los paneles del LIVE: menú de servicios, últimos en apoyar, franja de contacto, llamado gratis y aviso de IA (`overlay/hud.js`) | La escena del mago |
+| **Franja de contacto** | Frase y teléfono del tarotista; sale 15 s después de abrir y se repite cada N minutos | Un cartel fijo: nunca queda permanente en pantalla |
+| **Aviso de IA** | Texto legal al pie: TikTok exige etiquetar el contenido generado por IA | Un adorno opcional |
+| **Respuesta gratis** | Una respuesta corta por persona cada 24 h, sin regalo | Una lectura de cartas |
+| **`streamer.config.json`** | Preferencias del tarotista (frase, teléfono, tiempos). **No se sube a git** | Un archivo de secretos: las claves van en `.env` |
 | **Offline suites** | Pruebas que no usan red (`npm test`) | `test-adapter` / `test-gemini*`, que usan servicios reales |

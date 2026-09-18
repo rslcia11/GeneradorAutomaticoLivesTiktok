@@ -2,7 +2,7 @@
 
 Avatar animado de un **mago de tarot** que responde **en vivo y con voz** a los comentarios, regalos y seguidores de un LIVE de TikTok. Usa **Gemini** para generar las respuestas, **Edge TTS** para la voz y **PixiJS** para animar al personaje en OBS.
 
-> **Estado:** MVP funcional, probado en un LIVE real. Ver [docs/STATUS.md](docs/STATUS.md) para lo que falta.
+> **Estado:** MVP funcional, probado en LIVEs reales. **Lo más urgente es la estabilidad de la IA**: la capa gratis de Gemini se agota en minutos. Todo lo pendiente, en orden y con criterio de "listo", está en [docs/STATUS.md](docs/STATUS.md).
 
 ---
 
@@ -10,13 +10,16 @@ Avatar animado de un **mago de tarot** que responde **en vivo y con voz** a los 
 
 | Situación en el LIVE | Reacción del mago |
 |---|---|
-| Alguien pregunta por el amor, el futuro, el destino | Pose de **lectura**: saca 3 cartas de tarot que flotan y se revelan, y responde con voz |
-| Llega un **regalo** o una suscripción | Explosión de estrellas + pose de **agradecimiento** + agradece por nombre |
+| Alguien pregunta **sin haber regalado** | Una respuesta **corta y sin cartas**, una vez cada 24 h por persona. Las siguientes preguntas no se responden (y no gastan IA) |
+| Alguien pregunta **después de regalar** | Según lo regalado, una **lectura con cartas 3D**: salen de la bola, se barajan, se revelan una a una y flotan mientras habla |
+| Llega un **regalo** o una suscripción | Explosión de estrellas + pose de **agradecimiento** + agradece por nombre, y entra a la tabla de **últimos en apoyar** |
 | Alguien **sigue** o **comparte** el LIVE | Celebración visual (sin gastar IA) |
 | Un comentario normal | Pose de **explicación** y responde |
 | La IA invita a compartir | Pose de **brazos abiertos** |
 | Mientras la IA piensa | Pose de **concentración** con energía en la bola |
 
+- **Menú de regalos en pantalla** con la imagen y el precio **reales** de los regalos de TikTok de esa sala.
+- **Se ve igual en cualquier pantalla:** el overlay es un escenario 9:16 que se escala entero (OBS, celular o monitor).
 - **Respuestas en orden:** si llegan muchos comentarios, se responden de a uno, sin cortar la respuesta en curso.
 - **La boca sigue el volumen real de la voz**, cuadro a cuadro.
 - **Tolerante a fallos:** si el modelo principal de Gemini falla, usa uno de respaldo. Si la voz falla, responde igual en texto.
@@ -66,6 +69,25 @@ GEMINI_API_KEY=tu_clave_de_gemini_aqui
 ```
 
 > 🔐 **Nunca subas tu `.env`.** Ya está en `.gitignore`. `.env.example` debe tener **solo valores de ejemplo**.
+
+### Tus datos de tarotista (opcional)
+
+Crea `streamer.config.json` en la raíz. **No se sube a git**: es para tus datos, no para claves.
+
+```json
+{
+    "contact": {
+        "enabled": true,
+        "text": "✨ ¿Quieres una consulta personalizada? Escríbeme al 09XXXXXXXX",
+        "visibleSeconds": 12,
+        "everyMinutes": 6
+    }
+}
+```
+
+La franja aparece 15 s después de abrir el overlay y se repite cada `everyMinutes`. Con `"enabled": false` no se muestra nunca.
+
+> ⚠️ TikTok suele penalizar sacar usuarios de la plataforma con fines comerciales. Si notas advertencias o menos alcance, apágala.
 
 ### Cuenta de TikTok
 
@@ -129,6 +151,9 @@ flowchart LR
     EP -->|reglas| RE[EventRuleEngine]
     EP -->|visual: likes, viewers| GW
     EP -->|comentarios, regalos| Q[PriorityQueue]
+    RE <-->|servicio y saldo| SV[ServicePolicy<br/>SupportLedger]
+    AD -->|regalos de la sala| GC[giftCatalog]
+    GC -->|menú con regalos reales| GW
     Q --> W[QueueWorker]
     W --> AI[AIService]
     AI --> RP[ResilientAIProvider]
@@ -151,10 +176,11 @@ flowchart LR
    - `ignore`: miembros, comentarios vacíos, combos de regalo aún en curso.
    - `visual`: likes, espectadores, follows, shares y fin del live. Se celebran en pantalla, **sin IA**.
    - Van a la cola de IA: comentarios con prioridad 50; regalos y suscripciones con prioridad 80.
-2. **Cola → IA:** `QueueWorker` toma el evento de mayor prioridad y avisa al overlay (`ai_processing`), que pone al mago a "pensar". Después pide la respuesta a Gemini.
-3. **Salida estructurada:** Gemini devuelve JSON `{ intent, text }`. La intención es `tarot_reading`, `thanks`, `comment` o `invite_share`; los regalos siempre se tratan como `thanks`.
-4. **Voz:** `SpeechService` genera el MP3 con Edge TTS. Si falla, la respuesta sigue sin audio.
-5. **Overlay:** `InteractionPresenter` muestra las interacciones **de una en una**:
+2. **Regalos → servicio:** `ServicePolicy` suma las monedas de cada regalo al saldo del espectador. Al responderle, **gasta** el costo del mejor servicio que su saldo alcance; el sobrante queda para después y vence a las 24 h. Sin saldo, cada persona tiene **una** respuesta corta cada 24 h, y las siguientes preguntas se descartan antes de llamar a la IA.
+3. **Cola → IA:** `QueueWorker` toma el evento de mayor prioridad y avisa al overlay (`ai_processing`), que pone al mago a "pensar". Después pide la respuesta a Gemini.
+4. **Salida estructurada:** Gemini devuelve JSON `{ intent, text }`. La intención es `tarot_reading`, `thanks`, `comment` o `invite_share`; los regalos siempre se tratan como `thanks`.
+5. **Voz:** `SpeechService` genera el MP3 con Edge TTS. Si falla, la respuesta sigue sin audio.
+6. **Overlay:** `InteractionPresenter` muestra las interacciones **de una en una**:
    - El mago cambia a la pose de la intención.
    - Si la intención es `tarot_reading`, salen las cartas.
    - Suena la voz y la interacción dura lo que dura el audio.
@@ -166,24 +192,37 @@ src/
 ├── app.js                    # Punto de entrada: compone todo el backend
 ├── tiktok/TikTokLiveAdapter  # Normaliza eventos de tiktok-live-connector
 ├── events/EventProcessor     # Aplica reglas y encola
+├── config/streamerConfig     # Preferencias del tarotista (frase, teléfono)
 ├── rules/                    # EventRuleEngine (qué hacer) + PriorityQueue
+│   ├── serviceCatalog        # Los servicios y su precio en monedas
+│   ├── SupportLedger         # Saldo de cada espectador (24 h)
+│   ├── ServicePolicy         # Qué recibe cada quien; cobra y devuelve
+│   └── giftCatalog           # Regalos REALES de la sala (imagen y precio)
 ├── workers/QueueWorker       # Procesa la cola de a un elemento
 ├── ai/                       # AIService, ResilientAIProvider, GeminiProvider, intents
 ├── tts/                      # SpeechService + EdgeTTSProvider
 ├── realtime/RealtimeGateway  # WebSocket hacia el overlay (solo 127.0.0.1)
 ├── overlay/                  # Web servida en OBS (vanilla ES modules, sin build)
 │   ├── overlay.js            # Router de eventos y orquestación de la escena
+│   ├── stage.js              # Escenario fijo 9:16, escalado a la ventana
+│   ├── hud.js                # Menú de regalos, donantes y franja de contacto
 │   ├── InteractionPresenter  # Orden y duración de cada interacción
 │   ├── TarotAvatar           # Máquina de estados: idle/listening/thinking/speaking/reacting
 │   ├── SpeechPlayer          # Reproduce la voz y mide su volumen
 │   ├── debugTools            # Teclas y ?preview
-│   ├── animated/             # Renderer PixiJS: poses, rig de deformación, cartas, efectos
+│   ├── animated/             # Renderer PixiJS: poses, rig de deformación, efectos
+│   │   ├── cardGeometry      # Proyección 3D de una carta (matemática pura)
+│   │   ├── cardChoreography  # Los 5 actos de una lectura (matemática pura)
+│   │   ├── cardArt           # Los 14 arcanos, dibujados por código
+│   │   └── tarotCards        # Arma las cartas en PixiJS con lo anterior
 │   ├── assets/               # Imagen del mago + poses (WebP)
 │   └── vendor/               # PixiJS 8.20.1 (incluido, sin CDN)
 └── test-*.js                 # Pruebas (node:assert, sin framework)
 scripts/
 ├── serve-overlay.js          # Servidor estático del overlay
 └── test-offline.js           # Ejecuta solo las pruebas offline
+tools/
+└── capture-overlay.mjs       # Captura el overlay en OBS, celular y monitor
 docs/
 ├── CONTEXT.md                # Glosario del dominio
 └── STATUS.md                 # Estado, pendientes y próximos pasos
@@ -200,6 +239,10 @@ docs/
 | **Audio en base64 dentro de `ai_response`** | El texto y la voz llegan juntos y en orden por el mismo canal |
 | **Proveedores detrás de interfaces** | `generate()` para IA y `synthesize()` para voz: cambiar Gemini o Edge TTS toca un solo archivo |
 | **WebSocket solo en `127.0.0.1`** | Nadie de la red local puede conectarse ni saturar la memoria con audio |
+| **Escenario fijo 9:16 escalado** | Con medidas relativas a la ventana, los paneles se agrandaban y se encimaban en un monitor horizontal. Ahora se ve igual en OBS, en un celular y en el navegador |
+| **Coreografía y proyección de las cartas como matemática pura** | Es lo que más se retoca a ojo; separado de PixiJS se prueba en Node, sin navegador |
+| **Arcanos dibujados con trazos, no con glifos de fuente** | Un `☾` o un `♔` se ve como un cuadro vacío en una PC sin esa fuente, en pleno LIVE |
+| **Precios de regalos leídos de la sala** | Cambian según el país: escritos a mano, el menú mentiría |
 
 ---
 
@@ -209,12 +252,20 @@ docs/
 npm test
 ```
 
-Ejecuta las **14 suites offline** (183 pruebas) sin red y sin costo. Algunas simulan el navegador (`AudioContext`) y la librería de voz.
+Ejecuta las **20 suites offline** (288 pruebas) sin red y sin costo. Algunas simulan el navegador (`AudioContext`) y la librería de voz.
 
 > ⚠️ **No ejecutes `node src/test-*.js` con comodín.** Hay suites que usan servicios reales y se corren a mano, a propósito:
 > - `test-adapter.js`: se conecta a un LIVE de TikTok.
 > - `test-gemini.js` y `test-gemini-models.js`: **consumen cuota** de Gemini.
 > - `test-realtime.js` y `test-ai-overlay.js`: levantan el WebSocket en el puerto 8080 para probar el overlay a mano.
+
+### Verificar el overlay en varias pantallas
+
+```bash
+node tools/capture-overlay.mjs
+```
+
+Abre Chrome sin ventana y guarda una captura del overlay en OBS (1080 × 1920), celular (390 × 844) y monitor horizontal (1365 × 648), con datos de ejemplo, en `tools/capturas/`. Corta el WebSocket a propósito para **no** conectarse nunca al LIVE real del streamer.
 
 ---
 

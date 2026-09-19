@@ -29,7 +29,10 @@ const CONTENT_TYPES = {
     '.txt': 'text/plain; charset=utf-8',
     '.png': 'image/png',
     '.webp': 'image/webp',
-    '.svg': 'image/svg+xml'
+    '.svg': 'image/svg+xml',
+    '.mp3': 'audio/mpeg',
+    '.ogg': 'audio/ogg',
+    '.wav': 'audio/wav'
 };
 
 function resolveFile(urlPath) {

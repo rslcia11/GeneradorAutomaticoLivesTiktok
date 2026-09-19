@@ -6,6 +6,7 @@ import { formatNumber } from './format.js';
 import { startDebugTools } from './debugTools.js';
 import { fitStage } from './stage.js';
 import { socketUrl } from './socketUrl.js';
+import { AmbientAudio } from './AmbientAudio.js';
 
 /* Primero el escenario: todo lo demás se mide dentro de él. */
 fitStage();
@@ -95,6 +96,12 @@ const avatar = new TarotAvatar({
  */
 const speech = new SpeechPlayer();
 
+/*
+ * Música ambiental + efectos de sonido.
+ * Coloca tu archivo en: src/overlay/assets/audio/ambient.mp3
+ */
+const ambient = new AmbientAudio();
+
 /* Menú de servicios, últimos en apoyar y franja de contacto. */
 const hud = new Hud({ elements });
 
@@ -107,8 +114,14 @@ let voicedResponse = null;
 let followingSpeechLevel = false;
 
 for (const gesture of ['pointerdown', 'keydown']) {
-    window.addEventListener(gesture, () => speech.unlock());
+    window.addEventListener(gesture, () => {
+        speech.unlock();
+        ambient.unlock();
+    });
 }
+
+/* En OBS el audio arranca inmediatamente sin necesitar gesto. */
+ambient.unlock();
 
 /* Toda fase nueva de una interacción empieza cortando la voz anterior. */
 const afterStoppingSpeech = callback => (...args) => {
@@ -537,6 +550,7 @@ function showThinking(event) {
     }
 
     avatar.think();
+    ambient.playEffect('thinking');
 
     elements.avatarStatus.textContent =
         `Consultando las cartas para ${username}...`;
@@ -595,6 +609,7 @@ function showResponse(event) {
         intent: event.intent ?? null
     });
 
+    ambient.playEffect('speaking');
     playSpeech(event);
 
     console.log(
@@ -755,6 +770,8 @@ function handleGift(event) {
         `🎁 ${username} envió ${giftName} ×${quantity}`
     );
 
+    ambient.playEffect('gift');
+
     reactToAudience('gift', {
         status:
             `¡Gracias por el regalo, ${username}!`,
@@ -796,6 +813,8 @@ function handleFollow(event) {
         `➕ ${username} empezó a seguir`
     );
 
+    ambient.playEffect('follow');
+
     reactToAudience('follow', {
         status:
             `¡Bienvenido, ${username}!`,
@@ -816,6 +835,8 @@ function handleShare(event) {
     showNotification(
         `🔄 ${username} compartió el LIVE`
     );
+
+    ambient.playEffect('share');
 
     reactToAudience('share', {
         status:
@@ -857,6 +878,8 @@ function handleSubscription(event) {
     showNotification(
         `⭐ ${username} se suscribió`
     );
+
+    ambient.playEffect('subscription');
 
     reactToAudience('subscription', {
         status:
@@ -1016,6 +1039,7 @@ function shutdownOverlay() {
     animatedAvatar?.destroy();
     animatedAvatar = null;
 
+    ambient.destroy();
     avatar.destroy();
 
     if (
@@ -1117,9 +1141,10 @@ if (overlayParams.has('debug')) {
 /*
  * El avatar animado carga en paralelo: la conexión al LIVE
  * no espera a PixiJS. Hasta que esté listo se ve el avatar CSS.
+ * Usa ?avatar=css para forzar el modo sin WebGL.
  */
 const animatedAvatarReady =
-    overlayParams.get('avatar') === 'animado'
+    overlayParams.get('avatar') !== 'css'
         ? startAnimatedAvatar()
         : Promise.resolve();
 

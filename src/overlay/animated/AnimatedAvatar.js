@@ -164,7 +164,7 @@ export class AnimatedAvatar {
             ear: randomBetween(4, 9),
             earPhase: -1,
             glint:      randomBetween(2, 5),
-            idleShuffle: randomBetween(20, 40),
+            cardHover: 0,
             smoke:      [0, 0]   /* timer independiente por vela */
         };
 
@@ -186,9 +186,6 @@ export class AnimatedAvatar {
             holdTimer:  randomBetween(1, 3),
             slowDownIn: 0   /* segundos hasta bajar la velocidad post-snap */
         };
-
-        /* true mientras las cartas hacen el barajado idle (sin lectura activa). */
-        this.idleShuffleMode = false;
 
         /* Timer para reiniciar las cartas de la mesa periódicamente. */
         this.timers.tableRestart = randomBetween(55, 85);
@@ -784,72 +781,22 @@ export class AnimatedAvatar {
         const isReading = speaking && this.intent === 'tarot_reading';
 
         if (isReading) {
-            /* Lectura activa: comportamiento normal, descarta idle. */
-            this.idleShuffleMode = false;
-            this.timers.idleShuffle = randomBetween(25, 45);
+            this.timers.cardHover = 0;
             this.readingCards.start();
             return;
         }
 
-        if (this.idleShuffleMode) {
-            /* En barajado idle: parar antes de que llegue a 'reveal'. */
-            if (this.readingCards.phase === 'reveal' || this.readingCards.phase === 'hover') {
+        /* Auto-dismiss: 5 s en hover y la carta vuelve a la baraja. */
+        if (this.readingCards.phase === 'hover') {
+            this.timers.cardHover += dt;
+            if (this.timers.cardHover >= 5) {
                 this.readingCards.stop();
-            }
-
-            if (!this.readingCards.active) {
-                /* Terminó (phase === 'hidden'): programar el siguiente. */
-                this.idleShuffleMode = false;
-                this.timers.idleShuffle = randomBetween(25, 45);
-            }
-        } else {
-            /* Cuenta regresiva hasta el próximo barajado. */
-            this.timers.idleShuffle -= dt;
-
-            if (this.timers.idleShuffle <= 0) {
-                this.idleShuffleMode = true;
-                this.readingCards.start();
+                this.timers.cardHover = 0;
             }
         }
     }
 
-    #updateTableCards(dt) {
-
-        if (!this.tableCards) return;
-
-        const phase = this.tableCards.phase;
-
-        if (this.tableCardsRestarting) {
-            /* Esperando el dismiss para volver a arrancar. */
-            if (phase === 'hidden') {
-                this.tableCardsRestarting = false;
-                this.timers.tableRestart = randomBetween(55, 85);
-                this.tableCards.start();
-            }
-            return;
-        }
-
-        if (phase === 'hidden') {
-            /* Primera vez o tras un dismiss no solicitado: arrancar. */
-            this.tableCards.start();
-            return;
-        }
-
-        /* No revelar: las cartas de mesa siempre quedan boca abajo. */
-        if (phase === 'reveal') {
-            this.tableCards.stop();
-            return;
-        }
-
-        if (phase === 'hover') {
-            this.timers.tableRestart -= dt;
-
-            if (this.timers.tableRestart <= 0) {
-                this.tableCardsRestarting = true;
-                this.tableCards.stop();
-            }
-        }
-    }
+    #updateTableCards(_dt) {}
 
     #updateEffects(dt, target, talk, cheer) {
 

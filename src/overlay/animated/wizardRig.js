@@ -44,11 +44,9 @@ export const ANCHORS = Object.freeze({
         { x: 185, y: 790 }   /* humo/incienso izquierdo */
     ],
 
-    /* Donde flotan las cartas durante una lectura de tarot. */
+    /* Donde flota la carta durante una lectura de tarot (una sola, centrada). */
     readingSlots: [
-        { x: 290, y: 1150, rotation: -0.2 },
-        { x: 515, y: 1118, rotation: 0 },
-        { x: 740, y: 1150, rotation: 0.2 }
+        { x: 515, y: 1118, rotation: 0 }
     ],
 
     /* Las 5 cartas que se ven sobre la mesa en la imagen base. */

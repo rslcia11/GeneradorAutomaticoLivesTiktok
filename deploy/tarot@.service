@@ -20,6 +20,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 DynamicUser=yes
+# Nombre explícito: sin él, systemd usaría "tarot" y choca con el grupo.
+User=tarot-%i
 SupplementaryGroups=tarot
 WorkingDirectory=/opt/tarot/app
 

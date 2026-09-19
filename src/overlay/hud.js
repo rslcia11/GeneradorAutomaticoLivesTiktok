@@ -95,6 +95,7 @@ export class Hud {
         this.clearTimer = clearTimer;
 
         this.contactTimer = null;
+        this.dayTimerInterval = null;
     }
 
     /** Evento del backend → panel correspondiente. Devuelve true si lo manejó. */
@@ -135,14 +136,8 @@ export class Hud {
             ...services.map((service, index) => {
                 const item = document.createElement('li');
                 item.className = 'service-menu__item';
-
-                /* Entrada escalonada: cada fila llega un poco después. */
                 item.style?.setProperty('--i', index);
 
-                /*
-                 * Con la lista de la sala, se muestra el regalo ORIGINAL de
-                 * TikTok y su precio real; sin ella, un ícono y el precio base.
-                 */
                 const gift = service.tiktokGift;
 
                 const label = document.createElement('span');
@@ -153,26 +148,22 @@ export class Hud {
                 price.className = 'service-menu__price';
                 price.textContent = formatNumber(gift?.coins ?? service.coins, '—');
 
-                /* Si la imagen de TikTok no carga, vuelve el ícono. */
                 const media = gift?.image
                     ? giftImage(gift.image, gift.name, 'service-menu__gift', () => iconOf(service))
                     : iconOf(service);
 
-                item.append(media, label);
+                /* Icono + monedas apilados verticalmente */
+                const mediaWrap = document.createElement('div');
+                mediaWrap.className = 'service-menu__media-wrap';
+                mediaWrap.append(media, price);
 
-                if (gift?.name) {
-                    const giftName = document.createElement('span');
-                    giftName.className = 'service-menu__gift-name';
-                    giftName.textContent = gift.name;
-                    item.append(giftName);
-                }
-
-                item.append(price);
+                item.append(mediaWrap, label);
 
                 return item;
             })
         );
 
+        this.#startDayTimer();
         serviceMenu.hidden = false;
     }
 
@@ -345,6 +336,35 @@ export class Hud {
 
     destroy() {
         this.stopContact();
+        if (this.dayTimerInterval !== null) {
+            clearInterval(this.dayTimerInterval);
+            this.dayTimerInterval = null;
+        }
+    }
+
+    #startDayTimer() {
+        const timerEl = document.getElementById('service-menu-timer-time');
+        if (!timerEl) return;
+
+        const pad = n => String(n).padStart(2, '0');
+
+        const update = () => {
+            const now = new Date();
+            const midnight = new Date(now);
+            midnight.setHours(24, 0, 0, 0);
+            const diff = Math.max(0, Math.floor((midnight - now) / 1000));
+            const h = Math.floor(diff / 3600);
+            const m = Math.floor((diff % 3600) / 60);
+            const s = diff % 60;
+            timerEl.textContent = h > 0
+                ? `${pad(h)}:${pad(m)}:${pad(s)}`
+                : `${pad(m)}:${pad(s)}`;
+        };
+
+        update();
+
+        if (this.dayTimerInterval !== null) clearInterval(this.dayTimerInterval);
+        this.dayTimerInterval = setInterval(update, 1000);
     }
 }
 

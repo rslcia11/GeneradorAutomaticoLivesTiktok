@@ -2275,20 +2275,52 @@ body {
     animation-delay: calc(0.35s + var(--i, 0) * 0.09s);
 }
 
+/* Timer "00:56 del Día" */
+.service-menu__timer {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 0.35em;
+    margin: -0.25em 0 0.65em;
+}
+
+.service-menu__timer-time {
+    font-size: 1.5em;
+    font-weight: 800;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 12px rgba(180, 120, 255, 0.6);
+}
+
+.service-menu__timer-label {
+    font-size: 0.72em;
+    color: rgba(255, 230, 170, 0.8);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+/* Layout: [icono+monedas] | [nombre servicio] */
 .service-menu__item {
-    /* minmax(0, 1fr): el texto se achica en vez de empujar el precio afuera. */
-    grid-template-columns: 2.7em minmax(0, 1fr) auto;
-    grid-template-areas:
-        "media label price"
-        "media gift  price";
+    grid-template-columns: 3.6em 1fr;
+    grid-template-areas: "media label";
+    align-items: center;
+    gap: 0 0.65em;
+    padding: 0.4em 0.65em 0.4em 0.35em;
+}
+
+.service-menu__media-wrap {
+    grid-area: media;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.12em;
 }
 
 .service-menu__icon,
 .service-menu__gift {
-    grid-area: media;
-
-    width: 2.7em;
-    height: 2.7em;
+    width: 2.9em;
+    height: 2.9em;
 
     border-radius: 50%;
 
@@ -2299,14 +2331,11 @@ body {
     display: grid;
     place-items: center;
 
-    font-size: 1.45em;
-
-    /* Mismo círculo que la imagen: 2.7em del padre ÷ 1.45. */
-    width: 1.86em;
-    height: 1.86em;
+    font-size: 1.5em;
+    width: 1.93em;
+    height: 1.93em;
 }
 
-/* El regalo original de TikTok, flotando con un halo. */
 .service-menu__gift {
     object-fit: contain;
 
@@ -2318,60 +2347,25 @@ body {
     animation-delay: calc(var(--i, 0) * -0.6s);
 }
 
-.service-menu__label {
-    grid-area: label;
-
-    align-self: end;
-
-    font-weight: 700;
-    color: var(--ivory);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
-}
-
-.service-menu__gift-name {
-    grid-area: gift;
-
-    align-self: start;
-
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-
-    font-size: 0.78em;
-    color: rgba(255, 230, 170, 0.8);
-}
-
-/* Sin nombre de regalo, la etiqueta ocupa las dos líneas. */
-.service-menu__item:not(:has(.service-menu__gift-name)) .service-menu__label {
-    grid-row: 1 / span 2;
-    align-self: center;
-}
-
-/* Precio: moneda dorada + número. */
+/* Monedas debajo del ícono */
 .service-menu__price {
-    grid-area: price;
-
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 0.3em;
-
-    padding: 0.2em 0.5em 0.2em 0.25em;
-
-    border-radius: 999px;
-
-    background: linear-gradient(180deg, rgba(20, 8, 40, 0.75), rgba(40, 16, 70, 0.75));
-    box-shadow: inset 0 0 0 1px rgba(246, 211, 138, 0.45);
+    gap: 0.2em;
 
     color: #ffe39a;
+    font-size: 0.75em;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
+    line-height: 1;
 }
 
 .service-menu__price::before {
     content: "";
 
-    width: 1em;
-    height: 1em;
+    flex-shrink: 0;
+    width: 0.85em;
+    height: 0.85em;
 
     border-radius: 50%;
 
@@ -2379,7 +2373,17 @@ body {
         radial-gradient(circle at 35% 30%, #fff6c9 0 18%, transparent 20%),
         radial-gradient(circle, #ffd35a 0 55%, #c88a12 58% 70%, #ffe08a 72%);
 
-    box-shadow: 0 0 6px rgba(255, 200, 80, 0.7);
+    box-shadow: 0 0 5px rgba(255, 200, 80, 0.7);
+}
+
+.service-menu__label {
+    grid-area: label;
+
+    font-size: 1em;
+    font-weight: 800;
+    line-height: 1.2;
+    color: #fff;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
 }
 
 /* ─── Últimos en apoyar ─────────────────────────────────────── */

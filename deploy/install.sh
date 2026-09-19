@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
 # Instala el servidor en Ubuntu 24.04 (x86 o ARM, p. ej. Oracle Always Free).
+# En máquinas de 1 GB (Oracle E2.1.Micro) crea antes 2 GB de swap.
 # Se ejecuta UNA vez, como root:
 #
 #   sudo TAROT_DOMAIN=mago.ejemplo.com bash deploy/install.sh
@@ -17,6 +18,13 @@ set -euo pipefail
 REPO="${TAROT_REPO:-https://github.com/rslcia11/GeneradorAutomaticoLivesTiktok.git}"
 BRANCH="${TAROT_BRANCH:-main}"
 APP=/opt/tarot/app
+
+if [[ ! -e /swapfile ]] && (( $(awk '/MemTotal/ {print $2}' /proc/meminfo) < 1500000 )); then
+    echo "▶ Swap de 2 GB (poca RAM)"
+    fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile
+    echo "/swapfile none swap sw 0 0" >> /etc/fstab
+    echo "vm.swappiness=10" > /etc/sysctl.d/90-swap.conf && sysctl -q -p /etc/sysctl.d/90-swap.conf
+fi
 
 echo "▶ Paquetes base"
 apt-get update -qq
@@ -71,10 +79,21 @@ systemctl enable --now caddy
 systemctl reload caddy || systemctl restart caddy
 
 echo "▶ Firewall"
-ufw allow OpenSSH >/dev/null
-ufw allow 80/tcp >/dev/null
-ufw allow 443/tcp >/dev/null
-ufw --force enable >/dev/null
+if iptables -S INPUT 2>/dev/null | grep -q -- '-j REJECT --reject-with icmp-host-prohibited'; then
+    # Imágenes de Oracle Cloud: traen iptables propio que rechaza todo menos
+    # el 22 (aunque el panel diga otra cosa). Se abre ahí; ufw encima sería
+    # un segundo firewall peleando con el primero.
+    for port in 80 443; do
+        iptables -C INPUT -p tcp -m state --state NEW -m tcp --dport "$port" -j ACCEPT 2>/dev/null ||
+            iptables -I INPUT 5 -p tcp -m state --state NEW -m tcp --dport "$port" -j ACCEPT
+    done
+    netfilter-persistent save >/dev/null 2>&1 || iptables-save > /etc/iptables/rules.v4
+else
+    ufw allow OpenSSH >/dev/null
+    ufw allow 80/tcp >/dev/null
+    ufw allow 443/tcp >/dev/null
+    ufw --force enable >/dev/null
+fi
 
 # Las instancias ya creadas se reinician con el código nuevo.
 for unit in $(systemctl list-units --plain --no-legend 'tarot@*' | awk '{print $1}'); do

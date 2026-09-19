@@ -2301,11 +2301,11 @@ body {
 
 /* Layout: [icono+monedas] | [nombre servicio] */
 .service-menu__item {
-    grid-template-columns: 3.6em 1fr;
+    grid-template-columns: 4.4em 1fr;
     grid-template-areas: "media label";
     align-items: center;
     gap: 0 0.65em;
-    padding: 0.4em 0.65em 0.4em 0.35em;
+    padding: 0.45em 0.65em 0.45em 0.3em;
 }
 
 .service-menu__media-wrap {
@@ -2314,13 +2314,13 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.12em;
+    gap: 0.18em;
 }
 
 .service-menu__icon,
 .service-menu__gift {
-    width: 2.9em;
-    height: 2.9em;
+    width: 3.5em;
+    height: 3.5em;
 
     border-radius: 50%;
 
@@ -2331,9 +2331,9 @@ body {
     display: grid;
     place-items: center;
 
-    font-size: 1.5em;
-    width: 1.93em;
-    height: 1.93em;
+    font-size: 2em;
+    width: 1.75em;
+    height: 1.75em;
 }
 
 .service-menu__gift {
@@ -2351,10 +2351,10 @@ body {
 .service-menu__price {
     display: flex;
     align-items: center;
-    gap: 0.2em;
+    gap: 0.22em;
 
     color: #ffe39a;
-    font-size: 0.75em;
+    font-size: 0.88em;
     font-weight: 800;
     font-variant-numeric: tabular-nums;
     line-height: 1;

@@ -346,24 +346,9 @@
 
         </div>
 
-        <!-- Consulta privada — esquina inferior izquierda.
-             El teléfono llega del backend (streamer.config.json → contact.phone);
-             nunca se escribe aquí. -->
-        <div
-            id="private-consult"
-            class="private-consult"
-            hidden
-        >
-            <span class="private-consult__icon">🔮</span>
-            <div class="private-consult__text">
-                <span class="private-consult__label">Consulta privada</span>
-                <span
-                    id="private-consult-phone"
-                    class="private-consult__phone"
-                ></span>
-            </div>
-        </div>
-
+        <!-- El teléfono NO va fijo en pantalla: TikTok penaliza los carteles
+             estáticos. Sale dentro de la franja de contacto, unos segundos
+             cada cierto tiempo (contact.phone en streamer.config.json). -->
 
         <!-- =====================================================
              CONTACTO

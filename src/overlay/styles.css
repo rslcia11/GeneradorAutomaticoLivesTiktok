@@ -2145,6 +2145,18 @@ body {
     width: 16em;
     max-width: 38%;
     font-size: 2.5cqw;
+
+    /* Entra y sale: nunca queda fijo (ver Hud.#cycleMenu). */
+    opacity: 0;
+    transform: translateX(6%);
+    transition:
+        opacity 600ms ease,
+        transform 600ms ease;
+}
+
+.service-menu--visible {
+    opacity: 1;
+    transform: none;
 }
 
 .right-panel {

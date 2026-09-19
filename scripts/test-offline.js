@@ -30,6 +30,7 @@ const SUITES = [
     'streamer-config',
     'gateway',
     'retry',
+    'activity',
     'hud',
     'stage',
     'interaction-presenter',

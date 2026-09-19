@@ -29,6 +29,10 @@ const FIRST_CONTACT_MS = 15_000;
 /* Lo que dura el fundido de salida (igual que en styles.css). */
 const FADE_MS = 600;
 
+/* El menú de servicios se muestra a ratos, nunca fijo. */
+const MENU_VISIBLE_MS = 25_000;
+const MENU_HIDDEN_MS = 50_000;
+
 function iconOf(service) {
 
     const icon = document.createElement('span');
@@ -99,6 +103,7 @@ export class Hud {
         this.clearRepeating = clearRepeating;
 
         this.contactTimer = null;
+        this.menuTimer = null;
         this.dayTimerInterval = null;
     }
 
@@ -168,7 +173,7 @@ export class Hud {
         );
 
         this.#startDayTimer();
-        serviceMenu.hidden = false;
+        this.#cycleMenu();
     }
 
     showDonors(donors) {
@@ -244,10 +249,14 @@ export class Hud {
         const { contactBanner } = this.elements;
 
         const enabled = contact?.enabled === true;
-        const text = enabled && typeof contact.text === 'string' ? contact.text.trim() : '';
         const phone = enabled && typeof contact.phone === 'string' ? contact.phone.trim() : '';
 
-        this.#showPrivateConsult(phone);
+        /*
+         * El teléfono viaja DENTRO de la franja: nada queda fijo en pantalla.
+         * Si la frase ya lo menciona, no se repite.
+         */
+        const base = enabled && typeof contact.text === 'string' ? contact.text.trim() : '';
+        const text = phone && !base.includes(phone) ? `${base} ${phone}`.trim() : base;
 
         if (!contactBanner || !text) {
             return;
@@ -291,19 +300,6 @@ export class Hud {
         later(show, Math.min(everyMs, FIRST_CONTACT_MS));
     }
 
-    /** Cartel fijo con el teléfono. Sin teléfono, no existe. */
-    #showPrivateConsult(phone) {
-
-        const { privateConsult, privateConsultPhone } = this.elements;
-
-        if (!privateConsult || !privateConsultPhone) {
-            return;
-        }
-
-        privateConsultPhone.textContent = phone;
-        privateConsult.hidden = phone.length === 0;
-    }
-
     stopContact() {
 
         if (this.contactTimer !== null) {
@@ -341,6 +337,51 @@ export class Hud {
     destroy() {
         this.stopContact();
         this.#stopDayTimer();
+
+        if (this.menuTimer !== null) {
+            this.clearTimer(this.menuTimer);
+            this.menuTimer = null;
+        }
+    }
+
+    /**
+     * El menú NO vive fijo en pantalla: aparece un rato y se va.
+     *
+     * TikTok penaliza los paneles estáticos y, sobre todo, tener íconos de
+     * regalo y precios permanentes: lo lee como pedir regalos.
+     */
+    #cycleMenu() {
+
+        const { serviceMenu } = this.elements;
+
+        if (this.menuTimer !== null) {
+            this.clearTimer(this.menuTimer);
+        }
+
+        const later = (callback, ms) => {
+            this.menuTimer = this.setTimer(callback, ms);
+        };
+
+        const hide = () => {
+            serviceMenu.classList.remove('service-menu--visible');
+
+            later(() => {
+                serviceMenu.hidden = true;
+                later(show, MENU_HIDDEN_MS);
+            }, FADE_MS);
+        };
+
+        const show = () => {
+            serviceMenu.hidden = false;
+
+            /* La clase va en el turno siguiente; si no, aparece de golpe. */
+            later(() => {
+                serviceMenu.classList.add('service-menu--visible');
+                later(hide, MENU_VISIBLE_MS);
+            }, 0);
+        };
+
+        show();
     }
 
     /* Cuenta atrás hasta medianoche: cuándo se renueva la pregunta gratis. */

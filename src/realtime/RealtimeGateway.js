@@ -68,6 +68,11 @@ export class RealtimeGateway {
         return this.server?.address() ?? null;
     }
 
+    /** Overlays conectados ahora mismo. */
+    get clientCount() {
+        return this.wss?.clients.size ?? 0;
+    }
+
     #authorized(search) {
         return this.accessKey === null || keyMatches(keyFromSearch(search), this.accessKey);
     }

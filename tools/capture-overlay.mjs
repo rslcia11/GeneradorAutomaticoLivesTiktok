@@ -202,7 +202,8 @@ for (const [name, size] of screens) {
         conexion: document.getElementById('connection-status').textContent.trim(),
         escala: getComputedStyle(document.documentElement).getPropertyValue('--stage-scale').trim(),
         contactoVisible: !document.getElementById('contact-banner').hidden,
-        telefono: document.getElementById('private-consult-phone').textContent
+        franja: document.getElementById('contact-banner').textContent.trim(),
+        menuVisible: !document.getElementById('service-menu').hidden
     })`);
 
     const shot = await send('Page.captureScreenshot', { format: 'png' });

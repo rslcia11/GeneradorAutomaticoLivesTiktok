@@ -154,6 +154,10 @@ export class AnimatedAvatar {
         this.time = 0;
         this.celebration = 0;
 
+        /* 0..1, cuánta vida pide el director de sala (evento scene_mood). */
+        this.energy = 0.5;
+
+
         this.speech = new SpeechLevel();
 
         this.timers = {
@@ -247,6 +251,13 @@ export class AnimatedAvatar {
      */
     setSpeechLevel(level) {
         this.speech.setExternalLevel(level);
+    }
+
+    /** Cuánta vida tiene la escena en reposo (0..1). La manda el backend. */
+    setEnergy(energy) {
+        if (Number.isFinite(energy)) {
+            this.energy = Math.min(1, Math.max(0, energy));
+        }
     }
 
     celebrate(kind = 'gift') {
@@ -644,8 +655,21 @@ export class AnimatedAvatar {
         const target = STATE_PROFILES[this.state];
         const blend = 1 - Math.exp(-dt * 3.5);
 
+        /*
+         * Con la sala callada la escena se mueve más (el backend manda
+         * `scene_mood`): un LIVE quieto aburre y TikTok lo penaliza.
+         * En reposo se nota; mientras habla o piensa, casi nada.
+         */
+        const lift = this.state === 'idle' || this.state === 'listening'
+            ? 0.65 + this.energy * 0.7
+            : 1;
+
         for (const key in target) {
-            this.values[key] += (target[key] - this.values[key]) * blend;
+            const wanted = key === 'ringEvery' && target[key] > 0
+                ? target[key] / lift
+                : target[key] * (key === 'lean' ? 1 : lift);
+
+            this.values[key] += (wanted - this.values[key]) * blend;
         }
 
         const speaking = this.state === 'speaking';

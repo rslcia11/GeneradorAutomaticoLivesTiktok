@@ -57,12 +57,6 @@ const elements = {
     contactBanner:
         document.getElementById('contact-banner'),
 
-    privateConsult:
-        document.getElementById('private-consult'),
-
-    privateConsultPhone:
-        document.getElementById('private-consult-phone'),
-
     responseBar:
         document.getElementById('response-bar'),
 
@@ -397,6 +391,12 @@ function handleEvent(event) {
             handleQueuePosition(event);
             break;
 
+        /* Cuánta vida pide el director de sala (más si nadie comenta). */
+        case 'scene_mood':
+            animatedAvatar?.setEnergy(event.energy);
+            document.body.dataset.mood = event.mood ?? '';
+            break;
+
         case 'ai_processing':
             presenter.processing(event);
             break;
@@ -555,9 +555,13 @@ function showThinking(event) {
     avatar.think();
     ambient.playEffect('thinking');
 
-    elements.avatarStatus.textContent =
-        `Consultando las cartas para ${username}...`;
+    elements.avatarStatus.textContent = isIdleLine(event)
+        ? 'El mago observa la sala...'
+        : `Consultando las cartas para ${username}...`;
 }
+
+/* Frase que el mago dice solo (director de sala): no responde a nadie. */
+const isIdleLine = event => event?.source?.type === 'idle';
 
 
 /* ============================================================
@@ -591,15 +595,19 @@ function showResponse(event) {
     const username =
         getDisplayName(event.user);
 
-    elements.commentUser.textContent =
-        `🔮 Respuesta para ${username}`;
+    const idle = isIdleLine(event);
+
+    elements.commentUser.textContent = idle
+        ? '🔮 El mago'
+        : `🔮 Respuesta para ${username}`;
 
     elements.commentContent.textContent =
         text;
 
     if (elements.responseBar) {
-        elements.responseBarUser.textContent =
-            `Respondiendo a ${username}`;
+        elements.responseBarUser.textContent = idle
+            ? 'El mago dice'
+            : `Respondiendo a ${username}`;
         elements.responseBarText.textContent = text;
         elements.responseBar.hidden = false;
     }

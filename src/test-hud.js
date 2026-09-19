@@ -63,8 +63,6 @@ function createHud() {
         donorBoard: createElement(),
         donorBoardList: createElement('ol'),
         contactBanner: createElement(),
-        privateConsult: createElement(),
-        privateConsultPhone: createElement(),
         serviceMenuTimer: createElement()
     };
 
@@ -391,31 +389,46 @@ test('Desactivada o sin texto, la franja nunca aparece', () => {
     }
 });
 
-test('El cartel "Consulta privada" muestra el teléfono que llega del backend', () => {
+test('El teléfono viaja DENTRO de la franja, nunca fijo en pantalla', () => {
     const { hud, elements, timers } = createHud();
 
-    hud.handle({ type: 'contact_banner', contact: { enabled: true, phone: ' 0999999999 ' } });
+    hud.handle({
+        type: 'contact_banner',
+        contact: { enabled: true, text: '¿Consulta personalizada?', phone: ' 0999999999 ' }
+    });
 
-    assert.equal(elements.privateConsultPhone.textContent, '0999999999');
-    assert.equal(elements.privateConsult.hidden, false);
-    assert.equal(timers.length, 0, 'sin frase, la franja rotativa no arranca');
+    assert.match(elements.contactBanner.textContent, /¿Consulta personalizada\? 0999999999/);
+    assert.equal(elements.contactBanner.hidden, true, 'todavía no se muestra: sale a los 15 s');
+    assert.equal(timers.length, 1, 'queda programada la primera aparición');
 });
 
-test('Sin teléfono, o desactivado, el cartel se oculta y no queda un número viejo', () => {
-    const { hud, elements } = createHud();
+test('Si la frase ya trae el número, no se repite', () => {
+    const { hud, elements, timers } = createHud();
+
+    hud.handle({
+        type: 'contact_banner',
+        contact: { enabled: true, text: 'Escríbeme al 0999999999', phone: '0999999999' }
+    });
+
+    assert.equal(elements.contactBanner.textContent, 'Escríbeme al 0999999999');
+});
+
+test('Solo con teléfono, la franja lo muestra igual', () => {
+    const { hud, elements, timers } = createHud();
 
     hud.handle({ type: 'contact_banner', contact: { enabled: true, phone: '0999999999' } });
 
-    for (const contact of [
-        { enabled: true, text: 'Hola' },
-        { enabled: false, phone: '0999999999' },
-        undefined
-    ]) {
-        hud.handle({ type: 'contact_banner', contact });
+    assert.equal(elements.contactBanner.textContent, '0999999999');
+});
 
-        assert.equal(elements.privateConsult.hidden, true);
-        assert.equal(elements.privateConsultPhone.textContent, '');
-    }
+test('Desactivado, no hay franja ni número en ninguna parte', () => {
+    const { hud, elements, timers } = createHud();
+
+    hud.handle({ type: 'contact_banner', contact: { enabled: false, phone: '0999999999' } });
+
+    assert.equal(timers.length, 0);
+    assert.equal(elements.contactBanner.hidden, true);
+    assert.equal(elements.contactBanner.textContent, '');
 });
 
 

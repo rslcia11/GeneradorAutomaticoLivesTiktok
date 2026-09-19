@@ -4,6 +4,8 @@ import { TikTokLiveAdapter } from './tiktok/TikTokLiveAdapter.js';
 import { RealtimeGateway } from './realtime/RealtimeGateway.js';
 import { resolveAccessKey } from './realtime/accessKey.js';
 import { retryWithBackoff } from './tiktok/retryWithBackoff.js';
+import { ActivityDirector } from './live/ActivityDirector.js';
+import { idleLine } from './live/idleLines.js';
 import { EventProcessor } from './events/EventProcessor.js';
 import { EventRuleEngine } from './rules/EventRuleEngine.js';
 import { PriorityQueue } from './rules/PriorityQueue.js';
@@ -426,6 +428,81 @@ function createAIEvent(
 
 const thankYouTemplates = new ThankYouTemplates();
 
+/*
+ * Con la sala callada el mago toma la iniciativa (frases de plantilla, sin
+ * IA); con la sala activa se calla, porque las interacciones ya dan
+ * movimiento. También dice al overlay cuánta animación poner.
+ */
+const director = new ActivityDirector({ line: context => idleLine(context) });
+
+/* Lo que cuenta como participar. */
+const PARTICIPATION_EVENTS = new Set(['comment', 'gift', 'follow', 'share', 'subscription']);
+
+/* Cada cuánto se revisa la sala. */
+const DIRECTOR_TICK_MS = 10_000;
+
+let directorTimer = null;
+
+function startDirector() {
+    stopDirector();
+    director.start();
+    directorTimer = setInterval(() => {
+        directScene().catch(error => logger.warn(`El director falló: ${error.message}`));
+    }, DIRECTOR_TICK_MS);
+}
+
+/* Sin LIVE no hay sala que dirigir: nada de voz sintetizada a la nada. */
+function stopDirector() {
+    clearInterval(directorTimer);
+    directorTimer = null;
+}
+
+async function directScene() {
+
+    /* Sin LIVE, o sin un overlay que lo muestre, no hay a quién hablarle. */
+    if (!tiktok.connected || gateway.clientCount === 0) {
+        return;
+    }
+
+    const { mood, energy, speak } = director.direct();
+
+    gateway.broadcast({ type: 'scene_mood', mood, energy });
+
+    if (!speak) {
+        return;
+    }
+
+    logger.info(`🎭 Sala ${mood}: el mago habla solo`);
+
+    const audio = await speechService?.synthesizeForOverlay(speak) ?? null;
+    const interactionId = randomUUID();
+
+    gateway.broadcast({
+        platform: 'system',
+        type: 'ai_processing',
+        timestamp: Date.now(),
+        interactionId,
+        source: { platform: 'tiktok', type: 'idle', timestamp: Date.now(), content: null },
+        user: null
+    });
+
+    gateway.broadcast({
+        platform: 'system',
+        type: 'ai_response',
+        timestamp: Date.now(),
+        interactionId,
+        source: { platform: 'tiktok', type: 'idle', timestamp: Date.now(), content: null },
+        user: null,
+        text: speak,
+        audio,
+
+        /* Nunca cartas: una invitación no es una lectura. */
+        intent: 'invite_share'
+    });
+
+    director.registerBusy();
+}
+
 const worker = new QueueWorker({
     processor,
 
@@ -447,6 +524,9 @@ const worker = new QueueWorker({
         } = queueItem;
 
         logger.debug(`⚙️  Worker → ${event.type} | prioridad=${decision.priority}`);
+
+        /* El mago está ocupado: el director no habla encima. */
+        director.registerBusy();
 
         queueItem.interactionId =
             randomUUID();
@@ -504,6 +584,9 @@ const worker = new QueueWorker({
 
         const audio =
             await speechService?.synthesizeForOverlay(result.text) ?? null;
+
+        /* La respuesta recién empieza a sonar: el director espera. */
+        director.registerBusy();
 
         const aiResponseEvent =
             createAIEvent(
@@ -614,6 +697,16 @@ const tiktok =
 tiktok.onEvent(event => {
 
     logger.debug(`📥 TikTok → ${event.type}`);
+
+    /*
+     * El director mira la sala: quién hay y si alguien PARTICIPA.
+     * Entrar (member), dar like o irse no es participar.
+     */
+    if (event.type === 'room_user') {
+        director.setViewers(event.data?.totalUsers);
+    } else if (PARTICIPATION_EVENTS.has(event.type)) {
+        director.registerInteraction();
+    }
 
     /*
      * El apoyo se registra ANTES de aplicar las reglas: el regalo
@@ -748,6 +841,8 @@ async function start() {
          */
         worker.start();
 
+        startDirector();
+
         void loadRoomGifts();
 
         logger.info('✅ TikTok conectado');
@@ -768,8 +863,8 @@ async function start() {
         );
         logger.info(
             config.contact.enabled && config.contact.phone
-                ? '🔮 Cartel "Consulta privada" con teléfono'
-                : '🔮 Cartel "Consulta privada" apagado (streamer.config.json → contact.phone)'
+                ? '📱 Teléfono incluido en la franja de contacto'
+                : '📱 Sin teléfono en la franja (streamer.config.json → contact.phone)'
         );
         logger.info('Esperando eventos...\n');
 
@@ -779,6 +874,7 @@ async function start() {
 
         /* Que el disconnect de abajo no dispare la espera del próximo LIVE. */
         shuttingDown = true;
+        stopDirector();
 
         try {
             await worker.stop();
@@ -824,6 +920,7 @@ async function shutdown() {
         /*
          * Primero dejamos de recibir eventos nuevos.
          */
+        stopDirector();
         tiktok.disconnect();
 
         /*

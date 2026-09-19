@@ -1154,3 +1154,14 @@ void animatedAvatarReady.then(() => {
         params: overlayParams
     });
 });
+
+if (overlayParams.has('demo')) {
+    setTimeout(() => {
+        hud.showServices([
+            { label: 'Pregunta Rapida',    coins: 270, icon: '🍩', style: 'short' },
+            { label: 'Lectura 3 Cartas',   coins: 200, icon: '🌌', style: 'reading' },
+            { label: 'Prioridad 5 Cartas', coins: 0,   icon: '🦊', style: 'full' },
+            { label: 'Prioridad 3 Cartas', coins: 0,   icon: '🎩', style: 'reading_long' }
+        ]);
+    }, 1500);
+}

@@ -2097,34 +2097,19 @@ body {
     position: relative;
     z-index: 45;
 
-    /* Todo el panel escala con el ancho de la pantalla (em). */
     font-size: inherit;
 
     width: 100%;
     max-width: 100%;
 
-    padding: 0.75em 0.55em 0.6em;
+    padding: 0.5em 0.4em 0.5em;
 
-    border: 1.5px solid transparent;
-    border-radius: 1.15em;
-
-    /* Filo dorado: fondo del panel + degradé dorado en el borde. */
-    background:
-        var(--hud-panel) padding-box,
-        var(--hud-gold-edge) border-box;
-
-    box-shadow:
-        0 0 0 1px rgba(0, 0, 0, 0.35),
-        0 0 26px rgba(var(--violet), 0.45),
-        0 18px 40px rgba(0, 0, 0, 0.5),
-        inset 0 1px 0 rgba(255, 240, 200, 0.18);
+    /* Sin fondo: todo flota sobre el video */
+    background: none;
+    border: none;
+    box-shadow: none;
 
     color: var(--ivory);
-
-    overflow: hidden;
-
-    backdrop-filter: blur(14px) saturate(1.4);
-    -webkit-backdrop-filter: blur(14px) saturate(1.4);
 
     animation: hud-panel-in 0.9s cubic-bezier(0.2, 0.9, 0.25, 1.2) both;
 }
@@ -2155,11 +2140,11 @@ body {
 
 .service-menu {
     position: absolute;
-    top: 11%;
-    right: 3%;
-    width: 15em;
-    max-width: 34%;
-    font-size: 2.15cqw;
+    top: 8%;
+    right: 2%;
+    width: 16em;
+    max-width: 38%;
+    font-size: 2.5cqw;
 }
 
 .right-panel {
@@ -2246,7 +2231,7 @@ body {
     list-style: none;
 
     display: grid;
-    gap: 0.4em;
+    gap: 0.7em;
 }
 
 .service-menu__item,
@@ -2257,23 +2242,16 @@ body {
     align-items: center;
     gap: 0.1em 0.5em;
 
-    padding: 0.3em 0.55em 0.3em 0.3em;
+    padding: 0.25em 0.3em;
 
-    border: 1px solid transparent;
-    border-radius: 999px;
-
-    background:
-        var(--hud-row) padding-box,
-        linear-gradient(90deg, rgba(246, 211, 138, 0.75), rgba(246, 211, 138, 0.15) 60%, rgba(246, 211, 138, 0.55)) border-box;
-
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.14),
-        0 4px 12px rgba(0, 0, 0, 0.3);
+    /* Sin fondo: flotan sobre el video */
+    background: none;
+    border: none;
+    box-shadow: none;
 
     font-size: 0.8em;
     line-height: 1.15;
 
-    /* Cascada: cada fila entra --i × 90 ms después de la anterior. */
     animation: hud-row-in 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
     animation-delay: calc(0.35s + var(--i, 0) * 0.09s);
 }
@@ -2292,7 +2270,7 @@ body {
     font-weight: 800;
     color: #fff;
     font-variant-numeric: tabular-nums;
-    text-shadow: 0 0 12px rgba(180, 120, 255, 0.6);
+    text-shadow: 0 1px 8px rgba(0,0,0,0.95), 0 0 12px rgba(180,120,255,0.6);
 }
 
 .service-menu__timer-label {
@@ -2327,7 +2305,8 @@ body {
 
     border-radius: 50%;
 
-    background: radial-gradient(circle at 50% 40%, rgba(255, 230, 170, 0.35), rgba(80, 36, 140, 0.2) 65%, transparent 72%);
+    background: radial-gradient(circle at 50% 40%, rgba(80, 36, 140, 0.55), rgba(20, 6, 40, 0.7) 75%);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.6);
 }
 
 .service-menu__icon {
@@ -2357,10 +2336,11 @@ body {
     gap: 0.22em;
 
     color: #ffe39a;
-    font-size: 0.88em;
-    font-weight: 800;
+    font-size: 1.05em;
+    font-weight: 900;
     font-variant-numeric: tabular-nums;
     line-height: 1;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.7);
 }
 
 .service-menu__price::before {
@@ -2382,11 +2362,11 @@ body {
 .service-menu__label {
     grid-area: label;
 
-    font-size: 1em;
-    font-weight: 800;
+    font-size: 1.1em;
+    font-weight: 900;
     line-height: 1.2;
     color: #fff;
-    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
+    text-shadow: 0 1px 8px rgba(0,0,0,0.95), 0 0 14px rgba(0,0,0,0.8);
 }
 
 /* ─── Últimos en apoyar ─────────────────────────────────────── */

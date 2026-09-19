@@ -79,7 +79,10 @@ const elements = {
         document.getElementById('card-spotlight-name'),
 
     promoBanner:
-        document.getElementById('promo-banner')
+        document.getElementById('promo-banner'),
+
+    serviceMenuTimer:
+        document.getElementById('service-menu-timer-time')
 };
 
 validateRequiredElements();

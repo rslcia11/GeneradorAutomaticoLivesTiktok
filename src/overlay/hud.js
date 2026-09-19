@@ -87,12 +87,16 @@ export class Hud {
     constructor({
         elements,
         setTimer = (callback, ms) => setTimeout(callback, ms),
-        clearTimer = handle => clearTimeout(handle)
+        clearTimer = handle => clearTimeout(handle),
+        setRepeating = (callback, ms) => setInterval(callback, ms),
+        clearRepeating = handle => clearInterval(handle)
     }) {
 
         this.elements = elements;
         this.setTimer = setTimer;
         this.clearTimer = clearTimer;
+        this.setRepeating = setRepeating;
+        this.clearRepeating = clearRepeating;
 
         this.contactTimer = null;
         this.dayTimerInterval = null;
@@ -336,35 +340,47 @@ export class Hud {
 
     destroy() {
         this.stopContact();
-        if (this.dayTimerInterval !== null) {
-            clearInterval(this.dayTimerInterval);
-            this.dayTimerInterval = null;
-        }
+        this.#stopDayTimer();
     }
 
+    /* Cuenta atrás hasta medianoche: cuándo se renueva la pregunta gratis. */
     #startDayTimer() {
-        const timerEl = document.getElementById('service-menu-timer-time');
-        if (!timerEl) return;
 
-        const pad = n => String(n).padStart(2, '0');
+        const { serviceMenuTimer } = this.elements;
+
+        if (!serviceMenuTimer) {
+            return;
+        }
+
+        const pad = number => String(number).padStart(2, '0');
 
         const update = () => {
             const now = new Date();
             const midnight = new Date(now);
+
             midnight.setHours(24, 0, 0, 0);
-            const diff = Math.max(0, Math.floor((midnight - now) / 1000));
-            const h = Math.floor(diff / 3600);
-            const m = Math.floor((diff % 3600) / 60);
-            const s = diff % 60;
-            timerEl.textContent = h > 0
-                ? `${pad(h)}:${pad(m)}:${pad(s)}`
-                : `${pad(m)}:${pad(s)}`;
+
+            const seconds = Math.max(0, Math.floor((midnight - now) / 1000));
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+
+            serviceMenuTimer.textContent = hours > 0
+                ? `${pad(hours)}:${pad(minutes)}:${pad(seconds % 60)}`
+                : `${pad(minutes)}:${pad(seconds % 60)}`;
         };
 
         update();
 
-        if (this.dayTimerInterval !== null) clearInterval(this.dayTimerInterval);
-        this.dayTimerInterval = setInterval(update, 1000);
+        this.#stopDayTimer();
+        this.dayTimerInterval = this.setRepeating(update, 1000);
+    }
+
+    #stopDayTimer() {
+
+        if (this.dayTimerInterval !== null) {
+            this.clearRepeating(this.dayTimerInterval);
+            this.dayTimerInterval = null;
+        }
     }
 }
 

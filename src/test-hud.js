@@ -64,10 +64,12 @@ function createHud() {
         donorBoardList: createElement('ol'),
         contactBanner: createElement(),
         privateConsult: createElement(),
-        privateConsultPhone: createElement()
+        privateConsultPhone: createElement(),
+        serviceMenuTimer: createElement()
     };
 
     const timers = [];
+    const repeating = [];
 
     const hud = new Hud({
         elements,
@@ -75,14 +77,28 @@ function createHud() {
             timers.push(callback);
             return timers.length;
         },
-        clearTimer: () => {}
+        clearTimer: () => {},
+        setRepeating: (callback, ms) => {
+            repeating.push({ callback, ms });
+            return repeating.length;
+        },
+        clearRepeating: handle => repeating.splice(handle - 1, 1)
     });
 
-    return { hud, elements, timers };
+    return { hud, elements, timers, repeating };
 }
 
+/* Busca en todo el árbol, no solo entre los hijos directos. */
+const findIn = (element, matches) =>
+    element.children.find(matches) ??
+    element.children.map(child => findIn(child, matches)).find(Boolean);
+
+/* Texto de un elemento y de todo lo que tenga dentro, a cualquier nivel. */
 const textOf = element =>
-    element.children.map(child => child.textContent).join(' ');
+    [element.textContent, ...element.children.map(textOf)]
+        .filter(Boolean)
+        .join(' ')
+        .trim();
 
 
 // 1. Menú de servicios
@@ -105,6 +121,24 @@ test('Pinta el menú con nombre y precio de cada servicio', () => {
     assert.match(first, /Oráculo del Día/);
     assert.match(first, /29/);
     assert.match(textOf(elements.serviceMenuList.children[1]), /200/);
+});
+
+test('El menú muestra cuánto falta para la próxima pregunta gratis', () => {
+    const { hud, elements, repeating } = createHud();
+
+    hud.handle({ type: 'service_menu', services: [{ id: 'a', label: 'A', coins: 29, style: 'short' }] });
+
+    /* Cuenta atrás hasta medianoche: mm:ss, o hh:mm:ss si falta más de una hora. */
+    assert.match(elements.serviceMenuTimer.textContent, /^(\d{2}:)?\d{2}:\d{2}$/);
+    assert.equal(repeating.length, 1, 'se refresca cada segundo');
+    assert.equal(repeating[0].ms, 1000);
+
+    /* Repintar el menú no deja dos cuentas atrás corriendo a la vez. */
+    hud.handle({ type: 'service_menu', services: [{ id: 'a', label: 'A', coins: 29, style: 'short' }] });
+    assert.equal(repeating.length, 1);
+
+    hud.destroy();
+    assert.equal(repeating.length, 0, 'al cerrar no queda nada corriendo');
 });
 
 test('Un menú vacío no deja el panel a medio pintar', () => {
@@ -178,14 +212,13 @@ test('El menú muestra el regalo ORIGINAL de TikTok y su precio real', () => {
     });
 
     const [item] = elements.serviceMenuList.children;
-    const image = item.children.find(child => child.tagName === 'img');
+    const image = findIn(item, child => child.tagName === 'img');
 
     assert.ok(image, 'hay imagen del regalo');
     assert.equal(image.src, 'https://p16-webcast.tiktokcdn.com/donut.png');
-    assert.equal(image.alt, 'Doughnut');
+    assert.equal(image.alt, 'Doughnut', 'el nombre del regalo va en la imagen');
     assert.equal(image.referrerPolicy, 'no-referrer');
 
-    assert.match(textOf(item), /Doughnut/);
     assert.match(textOf(item), /30/, 'precio del regalo real, no el del servicio');
     assert.doesNotMatch(textOf(item), /29/);
 });
@@ -200,7 +233,7 @@ test('Sin la lista de la sala, el menú vuelve al ícono y al precio base', () =
 
     const [item] = elements.serviceMenuList.children;
 
-    assert.ok(!item.children.some(child => child.tagName === 'img'));
+    assert.ok(!findIn(item, child => child.tagName === 'img'));
     assert.match(textOf(item), /🃏/);
     assert.match(textOf(item), /200/);
 });
@@ -240,7 +273,7 @@ test('En el menú, una imagen de regalo inválida vuelve al ícono', () => {
 
     const [item] = elements.serviceMenuList.children;
 
-    assert.ok(!item.children.some(child => child.tagName === 'img'));
+    assert.ok(!findIn(item, child => child.tagName === 'img'));
     assert.match(textOf(item), /✨/, 'nunca queda un círculo vacío');
 });
 

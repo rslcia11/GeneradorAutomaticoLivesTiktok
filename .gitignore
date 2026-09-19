@@ -65,6 +65,3 @@ tools/capturas/
 
 # Muestras de voz generadas localmente (MP3/WAV, no van al repo)
 samples/
-
-# Música ambiental del overlay (binario local, cada streamer pone el suyo)
-src/overlay/assets/audio/

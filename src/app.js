@@ -10,8 +10,6 @@ import { EventProcessor } from './events/EventProcessor.js';
 import { EventRuleEngine } from './rules/EventRuleEngine.js';
 import { PriorityQueue } from './rules/PriorityQueue.js';
 import { QueueWorker } from './workers/QueueWorker.js';
-import { LivenessWorker } from './workers/LivenessWorker.js';
-import { GREETINGS } from './ai/LivenessContent.js';
 import { AIService } from './ai/AIService.js';
 import { GeminiProvider } from './ai/GeminiProvider.js';
 import { ResilientAIProvider } from './ai/ResilientAIProvider.js';
@@ -153,17 +151,22 @@ function refund(decision, event, reason) {
 /* Últimos regalos recibidos, para la tabla del overlay. */
 const recentDonors = [];
 
-let memberCounter = 0;
-let outfitIndex   = 0;
+/*
+ * Atuendo del mago (tinte del aura): cambia cada tanto y con regalos
+ * grandes, nunca al mismo (ver OUTFITS en AnimatedAvatar.js).
+ */
+const OUTFITS = 5;
+let outfitIndex = 0;
+let outfitChangedAt = 0;
 
 function nextOutfit() {
-    outfitIndex = (outfitIndex + Math.floor(Math.random() * 4) + 1) % 5;
+    outfitIndex = (outfitIndex + Math.floor(Math.random() * (OUTFITS - 1)) + 1) % OUTFITS;
+    outfitChangedAt = Date.now();
     gateway.broadcast({ type: 'outfit_change', paletteId: outfitIndex });
 }
 
-function pickGreeting(username) {
-    return GREETINGS[Math.floor(Math.random() * GREETINGS.length)](username);
-}
+/* El último que entró, para saludarlo si la sala está callada. */
+let newcomer = null;
 
 function rememberDonor(event, coins, balance) {
 
@@ -257,14 +260,6 @@ const gateway = new RealtimeGateway({
         systemEvent('contact_banner', { contact: config.contact }),
         { type: 'promo_banner', promo: config.promo }
     ]
-});
-
-const liveness = new LivenessWorker({
-    gateway,
-    log:                logger,
-    silenceThresholdMs: 45_000,
-    outfitEveryMs:      4 * 60_000,
-    onOutfitChange:     () => nextOutfit()
 });
 
 
@@ -455,7 +450,14 @@ const thankYouTemplates = new ThankYouTemplates();
  * IA); con la sala activa se calla, porque las interacciones ya dan
  * movimiento. También dice al overlay cuánta animación poner.
  */
-const director = new ActivityDirector({ line: context => idleLine(context) });
+const director = new ActivityDirector({
+    line: context => idleLine({
+        ...context,
+
+        /* Solo se saluda a quien entró hace poco; si no, suena a grabación. */
+        newcomer: newcomer && Date.now() - newcomer.at < NEWCOMER_FRESH_MS ? newcomer.name : null
+    })
+});
 
 /* Lo que cuenta como participar. */
 const PARTICIPATION_EVENTS = new Set(['comment', 'gift', 'follow', 'share', 'subscription']);
@@ -463,11 +465,21 @@ const PARTICIPATION_EVENTS = new Set(['comment', 'gift', 'follow', 'share', 'sub
 /* Cada cuánto se revisa la sala. */
 const DIRECTOR_TICK_MS = 10_000;
 
+/* Un recién llegado deja de ser "recién" a los... */
+const NEWCOMER_FRESH_MS = 60_000;
+
+/* Cambio de atuendo por tiempo, y barajada del mazo con la sala callada. */
+const OUTFIT_EVERY_MS = 4 * 60_000;
+const SHUFFLE_EVERY_MS = Object.freeze({ quiet: 90_000, warming: 180_000, busy: Infinity });
+
 let directorTimer = null;
+let shuffledAt = 0;
 
 function startDirector() {
     stopDirector();
     director.start();
+    outfitChangedAt = Date.now();
+    shuffledAt = Date.now();
     directorTimer = setInterval(() => {
         directScene().catch(error => logger.warn(`El director falló: ${error.message}`));
     }, DIRECTOR_TICK_MS);
@@ -486,25 +498,37 @@ async function directScene() {
         return;
     }
 
-    const { mood, energy, speak } = director.direct();
+    const now = Date.now();
+    const { mood, energy, speak } = director.direct(now);
 
     gateway.broadcast({ type: 'scene_mood', mood, energy });
+
+    /* Cambios de escena sin hablar: atuendo y mazo. */
+    if (now - outfitChangedAt >= OUTFIT_EVERY_MS) {
+        nextOutfit();
+    }
+
+    if (now - shuffledAt >= SHUFFLE_EVERY_MS[mood]) {
+        shuffledAt = now;
+        gateway.broadcast({ type: 'avatar_shuffle' });
+    }
 
     if (!speak) {
         return;
     }
 
-    logger.info(`🎭 Sala ${mood}: el mago habla solo`);
+    logger.info(`🎭 Sala ${mood}: el mago habla solo (${speak.intent})`);
 
-    const audio = await speechService?.synthesizeForOverlay(speak) ?? null;
+    const audio = await speechService?.synthesizeForOverlay(speak.text) ?? null;
     const interactionId = randomUUID();
+    const source = { platform: 'tiktok', type: 'idle', timestamp: now, content: null };
 
     gateway.broadcast({
         platform: 'system',
         type: 'ai_processing',
-        timestamp: Date.now(),
+        timestamp: now,
         interactionId,
-        source: { platform: 'tiktok', type: 'idle', timestamp: Date.now(), content: null },
+        source,
         user: null
     });
 
@@ -513,14 +537,19 @@ async function directScene() {
         type: 'ai_response',
         timestamp: Date.now(),
         interactionId,
-        source: { platform: 'tiktok', type: 'idle', timestamp: Date.now(), content: null },
+        source,
         user: null,
-        text: speak,
+        text: speak.text,
         audio,
 
-        /* Nunca cartas: una invitación no es una lectura. */
-        intent: 'invite_share'
+        /* invite_share (invitar, saludar) o tarot_reading (carta del día, con cartas). */
+        intent: speak.intent
     });
+
+    /* Quien fue saludado ya no es nuevo. */
+    if (speak.intent === 'invite_share' && newcomer && speak.text.includes(newcomer.name)) {
+        newcomer = null;
+    }
 
     director.registerBusy();
 }
@@ -540,7 +569,6 @@ const worker = new QueueWorker({
      */
     handler: async queueItem => {
 
-        liveness.setProcessing(true);
 
         const {
             event,
@@ -593,7 +621,6 @@ const worker = new QueueWorker({
         queueItem
     ) => {
 
-        liveness.setProcessing(false);
 
         const sourceEvent =
             queueItem.event;
@@ -677,7 +704,6 @@ const worker = new QueueWorker({
         queueItem
     ) => {
 
-        liveness.setProcessing(false);
 
         const sourceEvent =
             queueItem.event;
@@ -725,7 +751,6 @@ const tiktok =
 tiktok.onEvent(event => {
 
     logger.debug(`📥 TikTok → ${event.type}`);
-    liveness.resetSilenceTimer();
 
     /*
      * El director mira la sala: quién hay y si alguien PARTICIPA.
@@ -756,35 +781,18 @@ tiktok.onEvent(event => {
                 `(saldo: ${balance}) → desbloquea ${service.label}`
             );
 
-            /* Regalo grande (≥ 50 monedas): cambiar atuendo y resetear timer. */
+            /* Regalo grande (≥ 50 monedas): el mago se cambia de atuendo. */
             if (coins >= 50) {
                 nextOutfit();
-                liveness.resetOutfitTimer();
             }
         }
     }
 
-    /* Saludo a miembros nuevos: 1 de cada 8. */
+    /* Quien acaba de entrar puede recibir un saludo del director (con voz). */
     if (event.type === 'member') {
-        memberCounter = (memberCounter + 1) % 8;
+        const name = event.user?.nickname || event.user?.username;
 
-        if (memberCounter === 0) {
-            const username =
-                event.user?.nickname ||
-                event.user?.username ||
-                'viajero';
-
-            gateway.broadcast({
-                platform:      'system',
-                type:          'ai_response',
-                interactionId: randomUUID(),
-                text:          pickGreeting(username),
-                intent:        'invite_share',
-                audio:         null,
-                user:          event.user ?? null,
-                source:        null
-            });
-        }
+        newcomer = name ? { name, at: Date.now() } : null;
     }
 
     const result =
@@ -898,8 +906,6 @@ async function start() {
          * de confirmar la conexión con TikTok.
          */
         worker.start();
-        liveness.start();
-        logger.info('🎭 LivenessWorker iniciado');
 
         startDirector();
 
@@ -988,7 +994,6 @@ async function shutdown() {
          * se encuentre en ejecución.
          */
         await worker.stop();
-        liveness.stop();
 
         logger.info(`📊 EventProcessor: ${JSON.stringify(processor.getStats())}`);
         logger.info(`📊 QueueWorker: ${JSON.stringify(worker.getStats())}`);

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 
 import { ActivityDirector, FIRST_LINE_MS, IDLE_EVERY_MS, MIN_SILENCE_MS, WINDOW_MS } from './live/ActivityDirector.js';
 import { idleLine, QUIET, WARMING } from './live/idleLines.js';
+import { GREETINGS, READINGS } from './ai/LivenessContent.js';
 
 let passed = 0;
 let total = 0;
@@ -87,7 +88,7 @@ test('No habla apenas abre el LIVE', () => {
 
     assert.equal(director.direct(START).speak, null);
     assert.equal(director.direct(START + FIRST_LINE_MS - 1).speak, null);
-    assert.equal(director.direct(START + FIRST_LINE_MS).speak, 'quiet-1');
+    assert.equal(director.direct(START + FIRST_LINE_MS).speak?.text, 'quiet-1');
 });
 
 test('Respeta el ritmo según el ánimo y no se repite en cada tic', () => {
@@ -95,9 +96,9 @@ test('Respeta el ritmo según el ánimo y no se repite en cada tic', () => {
 
     const first = START + FIRST_LINE_MS;
 
-    assert.equal(director.direct(first).speak, 'quiet-1');
+    assert.equal(director.direct(first).speak?.text, 'quiet-1');
     assert.equal(director.direct(first + 1000).speak, null, 'no habla en cada tic');
-    assert.equal(director.direct(first + IDLE_EVERY_MS.quiet).speak, 'quiet-2');
+    assert.equal(director.direct(first + IDLE_EVERY_MS.quiet).speak?.text, 'quiet-2');
 });
 
 test('Con la sala activa habla mucho menos', () => {
@@ -116,7 +117,7 @@ test('Con la sala activa habla mucho menos', () => {
     assert.equal(director.direct(first + WINDOW_MS - 1).speak, null, 'sigue callado mientras la sala comenta');
 
     /* Pasado el rato sin comentarios nuevos, retoma la iniciativa. */
-    assert.equal(director.direct(first + IDLE_EVERY_MS.busy).speak, 'quiet-2');
+    assert.equal(director.direct(first + IDLE_EVERY_MS.busy).speak?.text, 'quiet-2');
 });
 
 test('Nunca habla encima del mago: espera tras una respuesta', () => {
@@ -127,31 +128,70 @@ test('Nunca habla encima del mago: espera tras una respuesta', () => {
     director.registerBusy(when);
 
     assert.equal(director.direct(when + MIN_SILENCE_MS - 1).speak, null);
-    assert.equal(director.direct(when + MIN_SILENCE_MS).speak, 'quiet-1');
+    assert.equal(director.direct(when + MIN_SILENCE_MS).speak?.text, 'quiet-1');
 });
 
 
 // 3. Frases
+/* random alto → nunca saluda ni hace carta del día: invita. */
+const invite = () => 0.99;
+
 test('Las frases evitan las últimas usadas', () => {
     const avoid = QUIET.slice(0, QUIET.length - 1);
 
-    assert.equal(idleLine({ mood: 'quiet', avoid }), QUIET.at(-1));
+    assert.deepEqual(idleLine({ mood: 'quiet', avoid }, invite), { text: QUIET.at(-1), intent: 'invite_share' });
 
     /* Si ya se usaron todas, vuelve a empezar en vez de quedarse muda. */
-    assert.ok(QUIET.includes(idleLine({ mood: 'quiet', avoid: QUIET })));
+    assert.ok(QUIET.includes(idleLine({ mood: 'quiet', avoid: QUIET }, invite).text));
 });
 
 test('Cada ánimo tiene su propio tono', () => {
-    assert.ok(QUIET.includes(idleLine({ mood: 'quiet' }, () => 0)));
-    assert.ok(WARMING.includes(idleLine({ mood: 'warming' }, () => 0)));
-    assert.ok(QUIET.includes(idleLine({ mood: 'otro' }, () => 0)), 'ánimo desconocido → quiet');
+    assert.ok(QUIET.includes(idleLine({ mood: 'quiet' }, invite).text));
+    assert.ok(WARMING.includes(idleLine({ mood: 'warming' }, invite).text));
+    assert.ok(QUIET.includes(idleLine({ mood: 'otro' }, invite).text), 'ánimo desconocido → quiet');
+});
+
+test('Saluda a quien acaba de entrar, solo si la sala no está a tope', () => {
+    const greeting = idleLine({ mood: 'quiet', newcomer: 'Mayra' }, () => 0);
+
+    assert.match(greeting.text, /Mayra/);
+    assert.equal(greeting.intent, 'invite_share');
+    assert.ok(GREETINGS.some(build => build('Mayra') === greeting.text));
+
+    /* Sin recién llegado no inventa nombres. */
+    assert.doesNotMatch(idleLine({ mood: 'quiet', newcomer: null }, () => 0).text, /Mayra/);
+
+    /* Con la sala activa no interrumpe para saludar. */
+    assert.doesNotMatch(idleLine({ mood: 'busy', newcomer: 'Mayra' }, () => 0).text, /Mayra/);
+});
+
+test('A veces hace una carta del día: lectura corta con cartas en pantalla', () => {
+    /* Sin recién llegado, la franja de lectura empieza en 0 (30 % en quiet). */
+    const reading = idleLine({ mood: 'quiet' }, () => 0.2);
+
+    assert.equal(reading.intent, 'tarot_reading');
+    assert.ok(READINGS.some(entry => entry.text === reading.text), 'el texto ya nombra la carta');
+
+    /* El hueco del saludo no se convierte en más lecturas. */
+    assert.equal(idleLine({ mood: 'quiet' }, () => 0.4).intent, 'invite_share');
+
+    /* Con la sala activa, nunca. */
+    assert.equal(idleLine({ mood: 'busy' }, () => 0.2).intent, 'invite_share');
 });
 
 test('Ninguna frase pide regalos, seguidores ni likes', () => {
-    const prohibidas = /regal|dale like|sígueme|sigueme|comparte|comparta|suscrí|monedas|rosa/i;
+    const prohibidas = /regal|dale like|sígueme|sigueme|comparte|comparta|suscrí|monedas|\brosas?\b/i;
 
     for (const line of [...QUIET, ...WARMING]) {
         assert.doesNotMatch(line, prohibidas, line);
+    }
+
+    for (const entry of READINGS) {
+        assert.doesNotMatch(entry.text, prohibidas, entry.card);
+    }
+
+    for (const build of GREETINGS) {
+        assert.doesNotMatch(build('x'), prohibidas);
     }
 });
 

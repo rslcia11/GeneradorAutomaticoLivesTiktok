@@ -32,6 +32,8 @@ _Última actualización: 2026-09-19. Actualizar al cerrar cualquier cambio relev
 - **Reconexión unificada** (`retryWithBackoff`): con `RECONNECT_MAX_ATTEMPTS=0` espera el próximo LIVE para siempre, tope 2 min entre intentos (≈720 firmas de Euler al día, bajo el límite gratis de 2 500).
 - **Del otro dev, integrado en main:** logging estructurado, circuit breaker, plantillas de agradecimiento, filtros de cola, puesto en fila, barra de respuesta, promo configurable, esfera armilar, música y efectos, menú estilo TikTok con contador hasta medianoche, cartas solo en lecturas.
 
+- **2026-09-20, unificación:** el otro dev subió un `LivenessWorker` (invitaciones, cartas del día, saludos a recién llegados, cambio de atuendo por tinte del aura, barajada) que hacía lo mismo que el director de sala, y con los dos activos el mago hablaba el doble y sin voz. Se dejó **un solo cerebro**: `ActivityDirector` decide cuándo, y `idleLines.js` mezcla ambos catálogos (`LivenessContent.js`) con intención (`invite_share` o `tarot_reading`), siempre con voz. El atuendo cambia cada 4 min y con regalos ≥ 50 monedas; la barajada sale cada 90 s con sala callada. `src/workers/LivenessWorker.js` y `src/test-liveness-worker.js` quedan **sin uso** hasta que el otro dev confirme retirarlos.
+
 ## En progreso
 
 - Etapa 8: variedad de animación y cambios de ropa del mago (pendientes 1 y 2).

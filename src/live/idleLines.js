@@ -7,7 +7,13 @@
  *   TikTok penaliza repetir llamados a la acción.
  * - Invitar a preguntar, que es lo que mueve el LIVE.
  * - Variedad real: si suenan iguales, parecen un script automático.
+ *
+ * Además de invitar, el mago puede saludar a alguien que acaba de entrar
+ * o hacer una "carta del día" (lectura corta sin destinatario, con cartas
+ * en pantalla): así la escena cambia aunque nadie escriba.
  */
+
+import { GREETINGS, INVITATIONS, READINGS } from '../ai/LivenessContent.js';
 
 const QUIET = [
     'Las cartas están inquietas esta noche... ¿alguien se anima a preguntar?',
@@ -19,7 +25,8 @@ const QUIET = [
     'Escucho pasos en el umbral... hay alguien con una pregunta atorada.',
     'Un arcano se asomó solo del mazo. Alguien aquí necesita respuesta.',
     'La primera pregunta del día no cuesta nada. Solo escríbela.',
-    'El gato negro se acomodó junto a la bola: buena señal para preguntar.'
+    'El gato negro se acomodó junto a la bola: buena señal para preguntar.',
+    ...INVITATIONS.map(entry => entry.text)
 ];
 
 const WARMING = [
@@ -39,19 +46,47 @@ const BUSY = [
 
 const BY_MOOD = Object.freeze({ quiet: QUIET, warming: WARMING, busy: BUSY });
 
+/* Con qué frecuencia, en vez de invitar, hace otra cosa. */
+const READING_CHANCE = Object.freeze({ quiet: 0.3, warming: 0.2, busy: 0 });
+const GREETING_CHANCE = Object.freeze({ quiet: 0.35, warming: 0.5, busy: 0 });
+
+const choose = (options, random) =>
+    options[Math.min(Math.floor(random() * options.length), options.length - 1)];
+
+const fresh = (pool, avoid) => {
+    const unused = pool.filter(text => !avoid.includes(text));
+
+    return unused.length > 0 ? unused : pool;
+};
+
 /**
- * Elige una frase para el ánimo de la sala, evitando las últimas usadas.
+ * Qué dice el mago ahora.
  *
- * @param {{ mood: string, avoid?: string[] }} context
+ * @param {{ mood: string, avoid?: string[], newcomer?: string|null }} context
+ *   `newcomer` es el apodo de alguien que acaba de entrar (para saludarlo).
  * @param {() => number} random
+ * @returns {{ text: string, intent: 'invite_share'|'tarot_reading' }}
  */
-export function idleLine({ mood = 'quiet', avoid = [] } = {}, random = Math.random) {
+export function idleLine({ mood = 'quiet', avoid = [], newcomer = null } = {}, random = Math.random) {
 
-    const pool = BY_MOOD[mood] ?? QUIET;
-    const fresh = pool.filter(line => !avoid.includes(line));
-    const options = fresh.length > 0 ? fresh : pool;
+    const known = BY_MOOD[mood] ? mood : 'quiet';
+    const roll = random();
 
-    return options[Math.min(Math.floor(random() * options.length), options.length - 1)];
+    /* Sin recién llegado, la franja del saludo no existe. */
+    const greetingChance = newcomer ? GREETING_CHANCE[known] : 0;
+
+    if (roll < greetingChance) {
+        return { text: choose(GREETINGS, random)(newcomer), intent: 'invite_share' };
+    }
+
+    if (roll < greetingChance + READING_CHANCE[known]) {
+        /* El texto ya nombra la carta ("El Sol ilumina..."): no se repite. */
+        const options = fresh(READINGS.map(entry => entry.text), avoid);
+
+        return { text: choose(options, random), intent: 'tarot_reading' };
+    }
+
+    return { text: choose(fresh(BY_MOOD[known], avoid), random), intent: 'invite_share' };
 }
 
 export { QUIET, WARMING, BUSY };

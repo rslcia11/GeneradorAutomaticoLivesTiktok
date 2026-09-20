@@ -37,7 +37,8 @@ export class ActivityDirector {
 
     /**
      * @param {object} options
-     * @param {(context: object) => string} options.line  frase para invitar
+     * @param {(context: object) => string|{ text: string, intent?: string }} options.line
+     *   qué dice el mago; puede traer la intención (invite_share, tarot_reading...)
      * @param {number} [options.memory]  cuántas frases no se repiten seguidas
      */
     constructor({ line, memory = 4 } = {}) {
@@ -89,9 +90,9 @@ export class ActivityDirector {
     /**
      * Qué toca hacer en este instante.
      *
-     * @returns {{ mood: string, energy: number, speak: string|null }}
+     * @returns {{ mood: string, energy: number, speak: { text: string, intent: string }|null }}
      *   `energy` (0..1) es cuánta animación debe haber en escena.
-     *   `speak` es la frase que debe decir el mago, o null.
+     *   `speak` es lo que debe decir el mago y con qué intención, o null.
      */
     direct(now = Date.now()) {
         const mood = this.mood(now);
@@ -120,11 +121,13 @@ export class ActivityDirector {
             return null;
         }
 
-        const text = this.line({
+        const picked = this.line({
             mood,
             viewers: this.#viewers,
             avoid: [...this.#recentLines]
         });
+
+        const text = typeof picked === 'string' ? picked : picked?.text;
 
         if (typeof text !== 'string' || text.trim() === '') {
             return null;
@@ -137,7 +140,7 @@ export class ActivityDirector {
             this.#recentLines.shift();
         }
 
-        return text;
+        return { text, intent: picked?.intent ?? 'invite_share' };
     }
 }
 

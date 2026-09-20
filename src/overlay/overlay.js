@@ -14,6 +14,9 @@ fitStage();
 /* Mismo servidor que sirvió la página, ruta `ws`, con la clave de la URL. */
 const WS_URL = socketUrl(window.location);
 
+/* Grados de hue-rotate por paleta de atuendo (5 paletas, índice 0–4). */
+const OUTFIT_HUES = Object.freeze([0, -60, 80, 140, 160]);
+
 const elements = {
     connectionStatus:
         document.getElementById('connection-status'),
@@ -435,6 +438,14 @@ function handleEvent(event) {
 
         case 'stream_end':
             handleStreamEnd();
+            break;
+
+        case 'outfit_change':
+            handleOutfitChange(event);
+            break;
+
+        case 'avatar_shuffle':
+            handleAvatarShuffle();
             break;
 
         /*
@@ -924,6 +935,35 @@ function handleStreamEnd() {
                 'La transmisión ha terminado'
         }
     );
+}
+
+
+/* ============================================================
+   OUTFIT CHANGE
+   ============================================================ */
+
+function handleOutfitChange(event) {
+
+    const id = typeof event.paletteId === 'number'
+        ? Math.max(0, Math.min(4, Math.floor(event.paletteId)))
+        : 0;
+
+    const hue = OUTFIT_HUES[id] ?? 0;
+
+    animatedAvatar?.setOutfit(id);
+    avatar.setHueShift(hue);
+}
+
+
+/* ============================================================
+   AVATAR SHUFFLE
+   ============================================================ */
+
+function handleAvatarShuffle() {
+
+    if (!presenter.isBusy) {
+        avatar.idle();
+    }
 }
 
 

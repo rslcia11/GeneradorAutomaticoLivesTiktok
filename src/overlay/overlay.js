@@ -839,7 +839,7 @@ function handleFollow(event) {
 
     reactToAudience('follow', {
         status:
-            `¡Bienvenido, ${username}!`,
+            `¡Un gusto, ${username}!`,
         durationMs: 1700
     });
 }

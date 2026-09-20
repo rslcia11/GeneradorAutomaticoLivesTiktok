@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { ActivityDirector, FIRST_LINE_MS, IDLE_EVERY_MS, MIN_SILENCE_MS, WINDOW_MS } from './live/ActivityDirector.js';
-import { idleLine, QUIET, WARMING } from './live/idleLines.js';
+import { BUSY, idleLine, QUIET, WARMING } from './live/idleLines.js';
 import { GREETINGS, READINGS } from './ai/LivenessContent.js';
 
 let passed = 0;
@@ -137,7 +137,7 @@ test('Nunca habla encima del mago: espera tras una respuesta', () => {
 const invite = () => 0.99;
 
 test('Las frases evitan las últimas usadas', () => {
-    const avoid = QUIET.slice(0, QUIET.length - 1);
+    const avoid = QUIET.slice(0, -1);
 
     assert.deepEqual(idleLine({ mood: 'quiet', avoid }, invite), { text: QUIET.at(-1), intent: 'invite_share' });
 
@@ -182,7 +182,7 @@ test('A veces hace una carta del día: lectura corta con cartas en pantalla', ()
 test('Ninguna frase pide regalos, seguidores ni likes', () => {
     const prohibidas = /regal|dale like|sígueme|sigueme|comparte|comparta|suscrí|monedas|\brosas?\b/i;
 
-    for (const line of [...QUIET, ...WARMING]) {
+    for (const line of [...QUIET, ...WARMING, ...BUSY]) {
         assert.doesNotMatch(line, prohibidas, line);
     }
 
@@ -195,9 +195,29 @@ test('Ninguna frase pide regalos, seguidores ni likes', () => {
     }
 });
 
+test('Catálogo agotado: recicla la más vieja, sin ping-pong entre dos frases', () => {
+    /* BUSY tiene pocas frases: con la memoria del director caben todas. */
+    let avoid = [...BUSY];
+    const dichas = [];
+
+    /* Sala siempre activa: habla 20 veces del mismo catálogo corto. */
+    for (let i = 0; i < 20; i++) {
+        const { text } = idleLine({ mood: 'busy', avoid }, () => (i * 7 % 20) / 20);
+
+        dichas.push(text);
+        avoid = [...avoid, text].slice(-12);
+    }
+
+    for (let i = 1; i < dichas.length; i++) {
+        assert.notEqual(dichas[i], dichas[i - 1], 'repitió la anterior');
+        assert.notEqual(dichas[i], dichas[i - 2], 'alternó entre dos frases');
+    }
+});
+
 test('Las frases no se repiten entre sí', () => {
-    assert.equal(new Set(QUIET).size, QUIET.length);
-    assert.equal(new Set(WARMING).size, WARMING.length);
+    const todas = [...QUIET, ...WARMING, ...BUSY];
+
+    assert.equal(new Set(todas).size, todas.length);
 });
 
 

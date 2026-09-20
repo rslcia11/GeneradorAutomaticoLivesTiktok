@@ -40,8 +40,9 @@ export class ActivityDirector {
      * @param {(context: object) => string|{ text: string, intent?: string }} options.line
      *   qué dice el mago; puede traer la intención (invite_share, tarot_reading...)
      * @param {number} [options.memory]  cuántas frases no se repiten seguidas
+     *   (en una sala callada son ~15 min de charla sin repetirse)
      */
-    constructor({ line, memory = 4 } = {}) {
+    constructor({ line, memory = 12 } = {}) {
         this.line = line;
         this.memory = memory;
     }

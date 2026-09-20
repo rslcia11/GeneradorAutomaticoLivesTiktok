@@ -99,7 +99,7 @@ await test('Regalo sin nombre → usa "regalo" como fallback', async () => {
 });
 
 // 7
-await test('Sin username → usa "amigo" como fallback', async () => {
+await test('Sin username → agradece sin arroba vacía ni género', async () => {
     const result = templates.generate({
         event: {
             type: 'gift',
@@ -108,7 +108,27 @@ await test('Sin username → usa "amigo" como fallback', async () => {
         }
     });
 
-    assert.ok(result.text.includes('amigo'), `fallback debe ser "amigo". Got: ${result.text}`);
+    assert.ok(result.text.includes('lma generosa'), `fallback neutro. Got: ${result.text}`);
+    assert.doesNotMatch(result.text, /@alma|@\s|@!/, `sin arroba huérfana. Got: ${result.text}`);
+    assert.doesNotMatch(result.text, /\bamig[oa]\b/i, `sin género. Got: ${result.text}`);
+    assert.doesNotMatch(result.text, /¡[a-záéíóúñ]/, `mayúscula al abrir. Got: ${result.text}`);
+});
+
+// 7b
+await test('Un apodo con $ no se expande dentro de la plantilla', async () => {
+    /* El apodo viene del chat: "$'" en un replace normal duplica texto. */
+    const result = templates.generate({
+        event: {
+            type: 'gift',
+            user: { username: "a$'b$&c" },
+            gift: { name: 'Rosa' }
+        }
+    });
+
+    /* Si el $ se expandiera, la plantilla se duplica y quedan huecos sin llenar. */
+    assert.doesNotMatch(result.text, /\{user\}|\{gift\}/, `sin huecos. Got: ${result.text}`);
+    assert.equal(result.text.match(/@a/g)?.length, 1, `un solo apodo. Got: ${result.text}`);
+    assert.ok(result.text.includes("@a$'b$&c"), `apodo literal. Got: ${result.text}`);
 });
 
 // 8

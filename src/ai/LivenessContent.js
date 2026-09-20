@@ -6,7 +6,7 @@
 export const INVITATIONS = Object.freeze([
     { text: '¿Tienes una pregunta para las cartas? Escríbela en el chat...', intent: 'invite_share' },
     { text: 'Las energías me dicen que alguien necesita una lectura hoy...', intent: 'invite_share' },
-    { text: '¿Qué te tiene preocupado? Las cartas pueden mostrarte el camino...', intent: 'invite_share' },
+    { text: '¿Qué te tiene sin paz? Las cartas pueden mostrarte el camino...', intent: 'invite_share' },
     { text: 'Siento que hay alguien aquí que necesita un mensaje del destino...', intent: 'invite_share' },
     { text: '¿Hay algo que quieras saber sobre tu futuro? Pregúntame...', intent: 'invite_share' },
     { text: 'Los astros están alineados para dar respuestas hoy. ¿Tienes una pregunta?', intent: 'invite_share' },
@@ -44,17 +44,31 @@ export const READINGS = Object.freeze([
     { card: 'La Templanza',              text: 'La Templanza invita al equilibrio y la paciencia. Mezcla con cuidado los ingredientes de tu vida. La armonía llega.',   intent: 'tarot_reading' },
 ]);
 
+/*
+ * Saludos a quien acaba de entrar. Sin género: el apodo no dice si es
+ * "bienvenido" o "bienvenida", y equivocarse suena a máquina.
+ */
 export const GREETINGS = Object.freeze([
-    u => `¡Bienvenido al círculo místico, ${u}! Las cartas te esperaban...`,
-    u => `${u} acaba de llegar. ¡Bienvenido! ¿Tienes una pregunta para el tarot?`,
-    u => `Las energías se iluminan con tu llegada, ${u}. ¡Bienvenido!`,
-    u => `¡${u}! Los astros anunciaron tu visita. ¡Bienvenido al LIVE!`,
-    u => `Hola ${u}. Las cartas tienen un mensaje especial para ti hoy...`,
-    u => `¡Qué bueno que llegaste, ${u}! Estábamos esperándote.`,
-    u => `El universo te trajo aquí, ${u}. ¡Bienvenido!`,
-    u => `${u} entra al círculo. ¡Bienvenido, viajero del destino!`,
-    u => `¡${u}! Las cartas se mueven al sentir tu presencia.`,
-    u => `Bienvenido, ${u}. Aquí las cartas revelan la verdad...`,
-    u => `¡Hola ${u}! ¿Listo para descubrir lo que el tarot tiene para ti?`,
-    u => `${u} ha llegado. Las energías del día te dan la bienvenida.`,
+    u => `${u}, pasa, pasa. Justo estaba barajando y una carta se movió cuando entraste.`,
+    u => `Hola, ${u}. Qué gusto tenerte por aquí. Si traes una pregunta, escríbela sin pena.`,
+    u => `Miren quién llegó: ${u}. Las velas se avivaron un poquito.`,
+    u => `${u}, qué buena energía traes. Acomódate, que aquí nadie tiene prisa.`,
+    u => `Siento una presencia nueva... ${u}. Las cartas ya te sintieron.`,
+    u => `${u} acaba de entrar. Un gusto. ¿Amor, trabajo o dinero? Tú dime.`,
+    u => `Ah, ${u}. El gato levantó la oreja cuando llegaste; eso no lo hace con cualquiera.`,
+    u => `Hola ${u}, llegas en buen momento: el mazo está tibio y con ganas de hablar.`,
+    u => `${u}, siéntate junto al fuego. Si algo te da vueltas en la cabeza, cuéntamelo.`,
+    u => `Qué bueno verte, ${u}. Aquí se pregunta bajito y las cartas responden fuerte.`,
+    u => `${u} entra al círculo. Que las velas te alumbren el camino.`,
+    u => `Saludos, ${u}. Hay una carta que lleva rato queriendo salir; a ver si es tuya.`,
+    u => `${u}, te estaba esperando el incienso, no yo. Yo solo leo lo que él dibuja.`,
+    u => `Tu visita es buen presagio, ${u}. ¿Qué te trae hasta esta mesa?`,
+    u => `${u}, no hace falta que digas nada todavía. Cuando estés a gusto, pregunta.`,
+    u => `Hola, ${u}. El humo se inclinó hacia tu nombre. Curioso, ¿no?`,
+    u => `${u}, buena noche para llegar: la Luna anda generosa con las respuestas.`,
+    u => `Un lugar junto a la mesa para ${u}. Las cartas hacen espacio.`,
+    u => `${u}, ¿vienes con una duda o con curiosidad? Las dos sirven.`,
+    u => `Alguien nuevo respira en la sala: ${u}. Bien, bien. Sigamos.`,
+    u => `Me alegra verte, ${u}. Aquí las preguntas no se juzgan, se leen.`,
+    u => `${u}, la bola se aclaró justo cuando entraste. Las coincidencias no existen.`,
 ]);

@@ -9,7 +9,7 @@ const GIFT_TEMPLATES = [
 ];
 
 const SUBSCRIPTION_TEMPLATES = [
-    '¡Bienvenido @{user} a la familia del mago! Tu apoyo es sagrado 🙏',
+    '¡@{user} ya es parte de la familia del mago! Tu apoyo es sagrado 🙏',
     '¡@{user} gracias por unirte! Las estrellas te acompañan desde hoy ✨',
     '¡@{user} el mago te da la bienvenida! Juntos exploramos el universo 🔮',
     '¡Gracias @{user} por tu suscripción! Que la magia te guíe siempre 🌟'
@@ -19,17 +19,29 @@ function pick(templates) {
     return templates[Math.floor(Math.random() * templates.length)];
 }
 
+/* Sin apodo no se sabe a quién se agradece: nada de "amigo" a ciegas. */
+const ANONIMO = 'alma generosa';
+
+/* Cuando el reemplazo abre la frase: "¡alma generosa..." → "¡Alma generosa...". */
+const capitalizar = text =>
+    text.replace(/^(¡?)(\p{Ll})/u, (_, signo, letra) => signo + letra.toUpperCase());
+
 function fill(template, vars) {
-    return template
-        .replace('{user}', vars.user ?? 'amigo')
-        .replace('{gift}', vars.gift ?? 'regalo');
+
+    /* Forma de función: un apodo con $& o $' es texto, no una instrucción. */
+    const texto = template
+        .replace('@{user}', () => (vars.user ? `@${vars.user}` : ANONIMO))
+        .replace('{user}', () => vars.user ?? ANONIMO)
+        .replace('{gift}', () => vars.gift ?? 'regalo');
+
+    return capitalizar(texto);
 }
 
 export class ThankYouTemplates {
 
     generate({ event } = {}) {
         const username =
-            event?.user?.username ?? 'amigo';
+            event?.user?.username ?? null;
 
         if (event?.type === 'gift') {
             const giftName =

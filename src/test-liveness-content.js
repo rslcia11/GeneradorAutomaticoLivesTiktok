@@ -40,8 +40,26 @@ test('Cada READING tiene card, text e intent tarot_reading', () => {
     }
 });
 
-test('GREETINGS tiene 12 entradas', () => {
-    assert.equal(GREETINGS.length, 12);
+/*
+ * El apodo de TikTok no dice el género de quien entra: "¡Bienvenido, Mayra!"
+ * suena a máquina. Los saludos deben servir para cualquier persona.
+ *
+ * Esto es una lista negra, no una garantía: atrapa las fórmulas con las que
+ * ya nos equivocamos. Al escribir un saludo nuevo, el criterio manda.
+ * Ojo: "list" también atrapa el sustantivo "la lista"; no se usa aquí.
+ */
+const GENERO = /\b(?:bienvenid|viajer|list|amig|querid|seguid|preparad|dispuest)[oa]s?\b/i;
+
+test('Hay variedad de saludos', () => {
+    assert.ok(GREETINGS.length >= 20, `solo ${GREETINGS.length} saludos`);
+});
+
+test('Ningún saludo usa las fórmulas con género que ya nos fallaron', () => {
+    for (const fn of GREETINGS) {
+        const saludo = fn('x');
+
+        assert.doesNotMatch(saludo, GENERO, saludo);
+    }
 });
 
 test('Cada GREETING es función que devuelve string con el username', () => {
@@ -59,4 +77,4 @@ test('INVITATIONS, READINGS y GREETINGS son inmutables (Object.isFrozen)', () =>
     assert.ok(Object.isFrozen(GREETINGS));
 });
 
-console.log(`\n🎯 ${passed}/7 pruebas de LivenessContent superadas correctamente.`);
+console.log(`\n🎯 ${passed}/8 pruebas de LivenessContent superadas correctamente.`);

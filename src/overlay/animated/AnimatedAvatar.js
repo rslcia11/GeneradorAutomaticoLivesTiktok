@@ -84,15 +84,15 @@ const MAGIC_TRICKS = Object.freeze([
 ]);
 
 /*
- * Paletas de atuendo: tint PixiJS aplicado solo al figure del mago.
- * 0xffffff = sin cambio (identidad).
+ * Paletas de atuendo: tint del aura del mago.
+ * El aura es un sprite independiente — no afecta la textura del escenario.
  */
 const OUTFITS = Object.freeze([
-    { tint: 0xffffff },  /* 0 — Púrpura clásico (original) */
-    { tint: 0x60a5fa },  /* 1 — Azul medianoche            */
-    { tint: 0xffd98a },  /* 2 — Dorado                     */
-    { tint: 0xff6b6b },  /* 3 — Rojo oscuro                */
-    { tint: 0x6ee7b7 },  /* 4 — Verde esmeralda            */
+    { aura: 0xa87bff },  /* 0 — Púrpura clásico (original) */
+    { aura: 0x60a5fa },  /* 1 — Azul medianoche            */
+    { aura: 0xffd98a },  /* 2 — Dorado                     */
+    { aura: 0xff6b6b },  /* 3 — Rojo oscuro                */
+    { aura: 0x6ee7b7},  /* 4 — Verde esmeralda            */
 ]);
 
 /* Fases del truco y su duración en segundos. */
@@ -274,18 +274,18 @@ export class AnimatedAvatar {
 
     setOutfit(id) {
 
-        if (!this.figure || this.figure.destroyed) {
+        if (!this.aura || this.aura.destroyed) {
             return;
         }
 
-        /* Limpia cualquier filtro CSS residual del canvas. */
+        /* Limpia filtro CSS residual si lo hubiera. */
         if (this.host) {
             this.host.style.filter     = '';
             this.host.style.transition = '';
         }
 
-        /* Tint solo al figure (mesh del mago), sin tocar bola ni aura. */
-        this.figure.tint = (OUTFITS[id] ?? OUTFITS[0]).tint;
+        /* Cambia el color del aura (sprite independiente del escenario). */
+        this.aura.tint = (OUTFITS[id] ?? OUTFITS[0]).aura;
     }
 
     celebrate(kind = 'gift') {

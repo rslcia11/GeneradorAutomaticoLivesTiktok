@@ -353,32 +353,15 @@ export class Hud {
 
         if (this.menuTimer !== null) {
             this.clearTimer(this.menuTimer);
+            this.menuTimer = null;
         }
 
-        const later = (callback, ms) => {
-            this.menuTimer = this.setTimer(callback, ms);
-        };
+        serviceMenu.hidden = false;
 
-        const hide = () => {
-            serviceMenu.classList.remove('service-menu--visible');
-
-            later(() => {
-                serviceMenu.hidden = true;
-                later(show, MENU_HIDDEN_MS);
-            }, FADE_MS);
-        };
-
-        const show = () => {
-            serviceMenu.hidden = false;
-
-            /* La clase va en el turno siguiente; si no, aparece de golpe. */
-            later(() => {
-                serviceMenu.classList.add('service-menu--visible');
-                later(hide, MENU_VISIBLE_MS);
-            }, 0);
-        };
-
-        show();
+        /* Aplica en el siguiente turno para que la transición CSS arranque. */
+        this.setTimer(() => {
+            serviceMenu.classList.add('service-menu--visible');
+        }, 0);
     }
 
     /* Cuenta atrás hasta medianoche: cuándo se renueva la pregunta gratis. */

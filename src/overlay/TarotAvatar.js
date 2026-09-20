@@ -284,6 +284,16 @@ export class TarotAvatar {
         );
     }
 
+    setHueShift(deg) {
+
+        if (this.destroyed) {
+            return;
+        }
+
+        this.image.style.transition = 'filter 1.5s ease';
+        this.image.style.filter     = deg === 0 ? '' : `hue-rotate(${deg}deg)`;
+    }
+
     /**
      * Estimación temporal provisional para representar
      * visualmente una respuesta mientras aún no existe TTS.

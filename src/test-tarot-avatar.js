@@ -15,6 +15,7 @@ class FakeElement {
 
         this.dataset = {};
         this.textContent = '';
+        this.style = {};
     }
 
     dispatchEvent() {
@@ -22,11 +23,20 @@ class FakeElement {
     }
 }
 
-globalThis.HTMLElement = FakeElement;
+globalThis.HTMLElement    = FakeElement;
 globalThis.HTMLImageElement = class extends FakeElement {};
 
 globalThis.window = {
     matchMedia: () => ({ matches: false })
+};
+
+globalThis.document = {
+    createElement(tag) {
+        if (tag === 'img') {
+            return new globalThis.HTMLImageElement();
+        }
+        return new FakeElement();
+    }
 };
 
 const { TarotAvatar } = await import('./overlay/TarotAvatar.js');
@@ -204,6 +214,29 @@ await test('Estado inválido lanza error', async avatar => {
         () => avatar.setState('bailando'),
         /inválido/
     );
+});
+
+
+await test('setHueShift() aplica filter a la imagen', async () => {
+    const root   = document.createElement('div');
+    const image  = document.createElement('img');
+    const status = document.createElement('span');
+    const ta     = new TarotAvatar({ root, image, statusElement: status });
+
+    ta.setHueShift(80);
+    assert.match(image.style.filter, /hue-rotate\(80deg\)/);
+
+    ta.setHueShift(0);
+    assert.equal(image.style.filter, '');
+});
+
+await test('setHueShift() no lanza si destroyed', async () => {
+    const root  = document.createElement('div');
+    const image = document.createElement('img');
+    const ta    = new TarotAvatar({ root, image });
+
+    ta.destroy();
+    assert.doesNotThrow(() => ta.setHueShift(90));
 });
 
 

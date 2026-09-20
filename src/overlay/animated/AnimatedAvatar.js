@@ -83,6 +83,18 @@ const MAGIC_TRICKS = Object.freeze([
     { emoji: '🔮', label: 'Orbe místico',    tint: 0xa87bff,  tints: [0xa87bff, 0x8fe3ff] },
 ]);
 
+/*
+ * Paletas de atuendo: filtro CSS aplicado al canvas del mago.
+ * Índice 0 = sin filtro (Púrpura clásico original).
+ */
+const OUTFITS = Object.freeze([
+    { hue:   0, sat: 1.0 },   /* 0 — Púrpura clásico  */
+    { hue: -60, sat: 1.1 },   /* 1 — Azul medianoche  */
+    { hue:  80, sat: 1.2 },   /* 2 — Dorado            */
+    { hue: 140, sat: 0.9 },   /* 3 — Rojo oscuro       */
+    { hue: 160, sat: 1.1 },   /* 4 — Verde esmeralda   */
+]);
+
 /* Fases del truco y su duración en segundos. */
 const TRICK_PHASES = Object.freeze({
     raise:  0.7,   /* mano sube */
@@ -174,7 +186,7 @@ export class AnimatedAvatar {
 
         /* Truco mágico periódico. */
         this.trick = {
-            timer:   randomBetween(8, 12),     /* segundos hasta el próximo truco */
+            timer:   randomBetween(6, 10),     /* segundos hasta el próximo truco */
             phase:   null,
             phaseT:  0,
             current: null,                    /* MAGIC_TRICKS entry */
@@ -258,6 +270,20 @@ export class AnimatedAvatar {
         if (Number.isFinite(energy)) {
             this.energy = Math.min(1, Math.max(0, energy));
         }
+    }
+
+    setOutfit(id) {
+
+        if (!this.host) {
+            return;
+        }
+
+        const outfit = OUTFITS[id] ?? OUTFITS[0];
+
+        this.host.style.transition = 'filter 1.5s ease';
+        this.host.style.filter     = outfit.hue === 0
+            ? ''
+            : `hue-rotate(${outfit.hue}deg) saturate(${outfit.sat})`;
     }
 
     celebrate(kind = 'gift') {
@@ -1120,7 +1146,7 @@ export class AnimatedAvatar {
 
             if (!next) {
                 tr.wand  = { dx: 0, dy: 0 };
-                tr.timer = randomBetween(50, 80);
+                tr.timer = randomBetween(18, 30);
             }
         }
     }

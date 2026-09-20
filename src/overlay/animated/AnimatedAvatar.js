@@ -84,15 +84,15 @@ const MAGIC_TRICKS = Object.freeze([
 ]);
 
 /*
- * Paletas de atuendo: filtro CSS aplicado al canvas del mago.
- * Índice 0 = sin filtro (Púrpura clásico original).
+ * Paletas de atuendo: tint PixiJS aplicado solo al figure del mago.
+ * 0xffffff = sin cambio (identidad).
  */
 const OUTFITS = Object.freeze([
-    { hue:   0, sat: 1.0 },   /* 0 — Púrpura clásico  */
-    { hue: -60, sat: 1.1 },   /* 1 — Azul medianoche  */
-    { hue:  80, sat: 1.2 },   /* 2 — Dorado            */
-    { hue: 140, sat: 0.9 },   /* 3 — Rojo oscuro       */
-    { hue: 160, sat: 1.1 },   /* 4 — Verde esmeralda   */
+    { tint: 0xffffff },  /* 0 — Púrpura clásico (original) */
+    { tint: 0x60a5fa },  /* 1 — Azul medianoche            */
+    { tint: 0xffd98a },  /* 2 — Dorado                     */
+    { tint: 0xff6b6b },  /* 3 — Rojo oscuro                */
+    { tint: 0x6ee7b7 },  /* 4 — Verde esmeralda            */
 ]);
 
 /* Fases del truco y su duración en segundos. */
@@ -274,16 +274,18 @@ export class AnimatedAvatar {
 
     setOutfit(id) {
 
-        if (!this.host) {
+        if (!this.figure || this.figure.destroyed) {
             return;
         }
 
-        const outfit = OUTFITS[id] ?? OUTFITS[0];
+        /* Limpia cualquier filtro CSS residual del canvas. */
+        if (this.host) {
+            this.host.style.filter     = '';
+            this.host.style.transition = '';
+        }
 
-        this.host.style.transition = 'filter 1.5s ease';
-        this.host.style.filter     = outfit.hue === 0
-            ? ''
-            : `hue-rotate(${outfit.hue}deg) saturate(${outfit.sat})`;
+        /* Tint solo al figure (mesh del mago), sin tocar bola ni aura. */
+        this.figure.tint = (OUTFITS[id] ?? OUTFITS[0]).tint;
     }
 
     celebrate(kind = 'gift') {

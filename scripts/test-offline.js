@@ -40,7 +40,8 @@ const SUITES = [
     'cards',
     'edge-tts',
     'speech-player',
-    'speech-service'
+    'speech-service',
+    'liveness-content'
 ];
 
 const SRC = fileURLToPath(new URL('../src/', import.meta.url));

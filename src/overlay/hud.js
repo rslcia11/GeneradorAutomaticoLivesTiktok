@@ -105,6 +105,12 @@ export class Hud {
         this.contactTimer = null;
         this.menuTimer = null;
         this.dayTimerInterval = null;
+
+        /* Contador de monedas acumuladas desde que cargó el overlay. */
+        this.sessionCoins  = 0;
+        this.sessionStart  = Date.now();
+        this.seenDonors    = new Set();
+        this.servicePrices = []; /* [{el, threshold}] */
     }
 
     /** Evento del backend → panel correspondiente. Devuelve true si lo manejó. */
@@ -141,6 +147,8 @@ export class Hud {
             return;
         }
 
+        this.servicePrices = [];
+
         serviceMenuList.replaceChildren(
             ...services.map((service, index) => {
                 const item = document.createElement('li');
@@ -155,7 +163,11 @@ export class Hud {
 
                 const price = document.createElement('span');
                 price.className = 'service-menu__price';
-                price.textContent = formatNumber(gift?.coins ?? service.coins, '—');
+
+                /* Empieza en 0; sube con donaciones recibidas esta sesión. */
+                const threshold = gift?.coins ?? service.coins;
+                price.textContent = '0';
+                this.servicePrices.push({ el: price, threshold });
 
                 const media = gift?.image
                     ? giftImage(gift.image, gift.name, 'service-menu__gift', () => iconOf(service))
@@ -172,6 +184,8 @@ export class Hud {
             })
         );
 
+        this.#updatePriceBadges();
+
         this.#startDayTimer();
         this.#cycleMenu();
     }
@@ -185,6 +199,16 @@ export class Hud {
         }
 
         const list = Array.isArray(donors) ? donors.slice(0, MAX_DONORS) : [];
+
+        /* Acumula monedas de donantes nuevos (posteriores al inicio de sesión). */
+        for (const donor of list) {
+            const id = donor.at;
+            if (id && id > this.sessionStart && !this.seenDonors.has(id)) {
+                this.seenDonors.add(id);
+                this.sessionCoins += donor.coins ?? 0;
+            }
+        }
+        this.#updatePriceBadges();
 
         /* La tabla aparece solo cuando hay donantes. */
         if (list.length === 0) {
@@ -362,6 +386,13 @@ export class Hud {
         this.setTimer(() => {
             serviceMenu.classList.add('service-menu--visible');
         }, 0);
+    }
+
+    /* Actualiza cada precio del menú con el acumulado de la sesión. */
+    #updatePriceBadges() {
+        for (const { el, threshold } of this.servicePrices) {
+            el.textContent = formatNumber(Math.min(this.sessionCoins, threshold));
+        }
     }
 
     /* Cuenta atrás hasta medianoche: cuándo se renueva la pregunta gratis. */

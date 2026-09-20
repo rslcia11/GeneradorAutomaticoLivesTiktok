@@ -22,6 +22,7 @@ import { createLedgerSaver, loadLedger } from './rules/ledgerStore.js';
 import { decorateMenu, normalizeGifts } from './rules/giftCatalog.js';
 import { asNumber, readStreamerConfig, resolveContact,resolvePromo, resolveTiktokUsername } from './config/streamerConfig.js';
 import { logger } from './logger.js';
+import { GREETINGS } from './ai/LivenessContent.js';
 
 /* Preferencias del streamer (frase y teléfono). Las claves siguen en .env. */
 const streamer = readStreamerConfig('./streamer.config.json');
@@ -156,8 +157,31 @@ const recentDonors = [];
  * grandes, nunca al mismo (ver OUTFITS en AnimatedAvatar.js).
  */
 const OUTFITS = 5;
-let outfitIndex = 0;
+let outfitIndex    = 0;
 let outfitChangedAt = 0;
+let memberCounter  = 0;
+let shareCounter   = 0;
+let likeCounter    = 0;
+let greetCounter   = 0;
+
+const SHARE_RESPONSES = Object.freeze([
+    '¡Gracias por compartir el LIVE! La magia viaja ahora contigo...',
+    '¡Compartiste! Las cartas te lo agradecen... tu energía se expande.',
+    '¡Gracias por llevar el oráculo a más personas! Eso tiene su recompensa...',
+    '¡Gracias por compartir! Más almas llegan al círculo místico.',
+    '¡Qué gesto tan generoso compartir! Las cartas te envían buena energía.',
+]);
+
+const LIKE_RESPONSES = Object.freeze([
+    '¡Gracias por el like! Tu energía alimenta el oráculo...',
+    '¡La bola de cristal brilla más con tu apoyo! Gracias.',
+    '¡Gracias por el like! Las cartas te lo devuelven en buena vibra.',
+    '¡Siento tu apoyo! El oráculo lo agradece profundamente.',
+]);
+
+function nextResponse(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+}
 
 function nextOutfit() {
     outfitIndex = (outfitIndex + Math.floor(Math.random() * (OUTFITS - 1)) + 1) % OUTFITS;
@@ -167,6 +191,23 @@ function nextOutfit() {
 
 /* El último que entró, para saludarlo si la sala está callada. */
 let newcomer = null;
+
+function pickGreeting(username) {
+    return GREETINGS[Math.floor(Math.random() * GREETINGS.length)](username);
+}
+
+function broadcastQuick(text, user = null) {
+    gateway.broadcast({
+        platform:      'system',
+        type:          'ai_response',
+        interactionId: randomUUID(),
+        text,
+        intent:        'invite_share',
+        audio:         null,
+        user,
+        source:        null
+    });
+}
 
 function rememberDonor(event, coins, balance) {
 
@@ -793,10 +834,57 @@ tiktok.onEvent(event => {
         const name = event.user?.nickname || event.user?.username;
 
         newcomer = name ? { name, at: Date.now() } : null;
+
+        memberCounter = (memberCounter + 1) % 8;
+
+        if (memberCounter === 0) {
+            const username =
+                event.user?.nickname ||
+                event.user?.username ||
+                'viajero';
+
+            broadcastQuick(pickGreeting(username), event.user ?? null);
+        }
+    }
+
+    /* Agradece shares: 1 de cada 2. */
+    if (event.type === 'share') {
+        shareCounter = (shareCounter + 1) % 2;
+
+        if (shareCounter === 0) {
+            broadcastQuick(nextResponse(SHARE_RESPONSES));
+        }
+    }
+
+    /* Agradece likes: 1 de cada 15. */
+    if (event.type === 'like') {
+        likeCounter = (likeCounter + 1) % 15;
+
+        if (likeCounter === 0) {
+            broadcastQuick(nextResponse(LIKE_RESPONSES));
+        }
     }
 
     const result =
         processor.process(event);
+
+    /* Saluda comentarios de bienvenida (hola, hi, etc.): 1 de cada 3. */
+    if (
+        event.type === 'comment' &&
+        !result.queued &&
+        result.decision?.reason === 'filler_comment'
+    ) {
+        greetCounter = (greetCounter + 1) % 3;
+
+        if (greetCounter === 0) {
+            const username =
+                event.user?.nickname ||
+                event.user?.username ||
+                'viajero';
+
+            broadcastQuick(pickGreeting(username), event.user ?? null);
+        }
+    }
 
     /*
      * VISUAL ya es publicado por EventProcessor.

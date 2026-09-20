@@ -10,6 +10,8 @@ import { EventProcessor } from './events/EventProcessor.js';
 import { EventRuleEngine } from './rules/EventRuleEngine.js';
 import { PriorityQueue } from './rules/PriorityQueue.js';
 import { QueueWorker } from './workers/QueueWorker.js';
+import { LivenessWorker } from './workers/LivenessWorker.js';
+import { GREETINGS } from './ai/LivenessContent.js';
 import { AIService } from './ai/AIService.js';
 import { GeminiProvider } from './ai/GeminiProvider.js';
 import { ResilientAIProvider } from './ai/ResilientAIProvider.js';
@@ -151,6 +153,18 @@ function refund(decision, event, reason) {
 /* Últimos regalos recibidos, para la tabla del overlay. */
 const recentDonors = [];
 
+let memberCounter = 0;
+let outfitIndex   = 0;
+
+function nextOutfit() {
+    outfitIndex = (outfitIndex + Math.floor(Math.random() * 4) + 1) % 5;
+    gateway.broadcast({ type: 'outfit_change', paletteId: outfitIndex });
+}
+
+function pickGreeting(username) {
+    return GREETINGS[Math.floor(Math.random() * GREETINGS.length)](username);
+}
+
 function rememberDonor(event, coins, balance) {
 
     recentDonors.unshift({
@@ -243,6 +257,14 @@ const gateway = new RealtimeGateway({
         systemEvent('contact_banner', { contact: config.contact }),
         { type: 'promo_banner', promo: config.promo }
     ]
+});
+
+const liveness = new LivenessWorker({
+    gateway,
+    log:                logger,
+    silenceThresholdMs: 45_000,
+    outfitEveryMs:      4 * 60_000,
+    onOutfitChange:     nextOutfit
 });
 
 
@@ -518,6 +540,8 @@ const worker = new QueueWorker({
      */
     handler: async queueItem => {
 
+        liveness.setProcessing(true);
+
         const {
             event,
             decision
@@ -568,6 +592,8 @@ const worker = new QueueWorker({
         result,
         queueItem
     ) => {
+
+        liveness.setProcessing(false);
 
         const sourceEvent =
             queueItem.event;
@@ -651,6 +677,8 @@ const worker = new QueueWorker({
         queueItem
     ) => {
 
+        liveness.setProcessing(false);
+
         const sourceEvent =
             queueItem.event;
 
@@ -697,6 +725,7 @@ const tiktok =
 tiktok.onEvent(event => {
 
     logger.debug(`📥 TikTok → ${event.type}`);
+    liveness.resetSilenceTimer();
 
     /*
      * El director mira la sala: quién hay y si alguien PARTICIPA.
@@ -726,6 +755,34 @@ tiktok.onEvent(event => {
                 `regalo "${event.gift?.name}" x${event.gift?.repeatCount ?? 1} = ${coins} ` +
                 `(saldo: ${balance}) → desbloquea ${service.label}`
             );
+
+            /* Regalo grande (≥ 50 monedas): cambiar atuendo. */
+            if (coins >= 50) {
+                nextOutfit();
+            }
+        }
+    }
+
+    /* Saludo a miembros nuevos: 1 de cada 8. */
+    if (event.type === 'member') {
+        memberCounter = (memberCounter + 1) % 8;
+
+        if (memberCounter === 0) {
+            const username =
+                event.user?.nickname ||
+                event.user?.username ||
+                'viajero';
+
+            gateway.broadcast({
+                platform:      'system',
+                type:          'ai_response',
+                interactionId: randomUUID(),
+                text:          pickGreeting(username),
+                intent:        'invite_share',
+                audio:         null,
+                user:          event.user ?? null,
+                source:        null
+            });
         }
     }
 
@@ -840,6 +897,8 @@ async function start() {
          * de confirmar la conexión con TikTok.
          */
         worker.start();
+        liveness.start();
+        logger.info('🎭 LivenessWorker iniciado');
 
         startDirector();
 
@@ -928,6 +987,7 @@ async function shutdown() {
          * se encuentre en ejecución.
          */
         await worker.stop();
+        liveness.stop();
 
         logger.info(`📊 EventProcessor: ${JSON.stringify(processor.getStats())}`);
         logger.info(`📊 QueueWorker: ${JSON.stringify(worker.getStats())}`);

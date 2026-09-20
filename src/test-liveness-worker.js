@@ -156,4 +156,12 @@ await test('Puede reiniciarse tras stop()', async () => {
     assert.ok(gw.broadcasts.length > 0);
 });
 
-console.log(`\n🎯 ${passed}/10 pruebas de LivenessWorker superadas correctamente.`);
+// 11. resetOutfitTimer exists and is callable
+await test('resetOutfitTimer existe y es invocable', async () => {
+    const gw = makeGateway();
+    const lw = new LivenessWorker({ gateway: gw });
+    assert.strictEqual(typeof lw.resetOutfitTimer, 'function', 'resetOutfitTimer should be a function');
+    lw.resetOutfitTimer(); // should not throw
+});
+
+console.log(`\n🎯 ${passed}/11 pruebas de LivenessWorker superadas correctamente.`);

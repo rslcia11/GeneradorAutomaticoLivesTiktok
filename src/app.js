@@ -264,7 +264,7 @@ const liveness = new LivenessWorker({
     log:                logger,
     silenceThresholdMs: 45_000,
     outfitEveryMs:      4 * 60_000,
-    onOutfitChange:     nextOutfit
+    onOutfitChange:     () => nextOutfit()
 });
 
 
@@ -756,9 +756,10 @@ tiktok.onEvent(event => {
                 `(saldo: ${balance}) → desbloquea ${service.label}`
             );
 
-            /* Regalo grande (≥ 50 monedas): cambiar atuendo. */
+            /* Regalo grande (≥ 50 monedas): cambiar atuendo y resetear timer. */
             if (coins >= 50) {
                 nextOutfit();
+                liveness.resetOutfitTimer();
             }
         }
     }

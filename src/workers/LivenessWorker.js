@@ -73,6 +73,10 @@ export class LivenessWorker {
         this.silenceMs = 0;
     }
 
+    resetOutfitTimer() {
+        this.outfitMs = 0;
+    }
+
     setProcessing(bool) {
         this.processing = Boolean(bool);
     }

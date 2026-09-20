@@ -22,7 +22,7 @@ import { createLedgerSaver, loadLedger } from './rules/ledgerStore.js';
 import { decorateMenu, normalizeGifts } from './rules/giftCatalog.js';
 import { asNumber, readStreamerConfig, resolveContact,resolvePromo, resolveTiktokUsername } from './config/streamerConfig.js';
 import { logger } from './logger.js';
-import { GREETINGS } from './ai/LivenessContent.js';
+import { GREETINGS, INVITATIONS } from './ai/LivenessContent.js';
 
 /* Preferencias del streamer (frase y teléfono). Las claves siguen en .env. */
 const streamer = readStreamerConfig('./streamer.config.json');
@@ -163,6 +163,8 @@ let memberCounter  = 0;
 let shareCounter   = 0;
 let likeCounter    = 0;
 let greetCounter   = 0;
+let emojiCounter   = 0;
+let quotaCounter   = 0;
 
 const SHARE_RESPONSES = Object.freeze([
     '¡Gracias por compartir el LIVE! La magia viaja ahora contigo...',
@@ -178,6 +180,24 @@ const LIKE_RESPONSES = Object.freeze([
     '¡Gracias por el like! Las cartas te lo devuelven en buena vibra.',
     '¡Siento tu apoyo! El oráculo lo agradece profundamente.',
 ]);
+
+const EMOJI_REACTIONS = Object.freeze([
+    '¡Esa energía llega fuerte! ¿Hay algo que quieras preguntarle a las cartas?',
+    'Las velas parpadearon con eso... ¿Qué hay en tu corazón hoy?',
+    '¡El oráculo siente esa vibra! Si tienes una duda, escríbela.',
+    'El mazo se agitó. ¿Hay algo que necesites saber?',
+    'Buena energía. Las cartas están listas si quieres una lectura.',
+]);
+
+const QUOTA_MESSAGES = Object.freeze([
+    u => `${u}, ya recibiste tu lectura de hoy. Mañana el mazo estará listo para ti de nuevo.`,
+    u => `El oráculo ya habló para ti hoy, ${u}. Vuelve mañana y las cartas tendrán otro mensaje.`,
+    u => `Ya leímos juntos hoy, ${u}. La energía necesita asentarse. ¡Hasta mañana!`,
+    u => `Por hoy es suficiente, ${u}. Las cartas descansan hasta mañana.`,
+]);
+
+/* Detecta comentarios compuestos solo de emojis (igual que EventRuleEngine). */
+const EMOJI_ONLY_RX = /^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+$/u;
 
 function nextResponse(arr) {
     return arr[Math.floor(Math.random() * arr.length)];
@@ -868,21 +888,43 @@ tiktok.onEvent(event => {
     const result =
         processor.process(event);
 
-    /* Saluda comentarios de bienvenida (hola, hi, etc.): 1 de cada 3. */
+    /* Comentarios ignorados: fillers y emojis. */
     if (
         event.type === 'comment' &&
         !result.queued &&
         result.decision?.reason === 'filler_comment'
     ) {
-        greetCounter = (greetCounter + 1) % 3;
+        const content = event.content?.trim() ?? '';
+        const username = event.user?.nickname || event.user?.username || 'viajero';
 
-        if (greetCounter === 0) {
-            const username =
-                event.user?.nickname ||
-                event.user?.username ||
-                'viajero';
+        if (EMOJI_ONLY_RX.test(content)) {
+            /* Emojis: reacción corta 1 de cada 5. */
+            emojiCounter = (emojiCounter + 1) % 5;
+            if (emojiCounter === 0) {
+                broadcastQuick(nextResponse(EMOJI_REACTIONS), event.user ?? null);
+            }
+        } else {
+            /* Palabras de relleno: saludo o invitación 1 de cada 2. */
+            greetCounter = (greetCounter + 1) % 2;
+            if (greetCounter === 0) {
+                const useGreeting = Math.random() < 0.5;
+                const text = useGreeting
+                    ? pickGreeting(username)
+                    : INVITATIONS[Math.floor(Math.random() * INVITATIONS.length)].text;
+                broadcastQuick(text, event.user ?? null);
+            }
+        }
+    }
 
-            broadcastQuick(pickGreeting(username), event.user ?? null);
+    /* Ya usó la lectura gratis hoy: aviso amable 1 de cada 2. */
+    if (
+        event.type === 'comment' &&
+        result.decision?.reason === 'free_quota_used'
+    ) {
+        quotaCounter = (quotaCounter + 1) % 2;
+        if (quotaCounter === 0) {
+            const username = event.user?.nickname || event.user?.username || 'viajero';
+            broadcastQuick(QUOTA_MESSAGES[Math.floor(Math.random() * QUOTA_MESSAGES.length)](username), event.user ?? null);
         }
     }
 

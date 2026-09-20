@@ -41,7 +41,8 @@ const SUITES = [
     'edge-tts',
     'speech-player',
     'speech-service',
-    'liveness-content'
+    'liveness-content',
+    'liveness-worker'
 ];
 
 const SRC = fileURLToPath(new URL('../src/', import.meta.url));

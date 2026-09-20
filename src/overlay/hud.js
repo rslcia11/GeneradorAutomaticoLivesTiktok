@@ -186,17 +186,14 @@ export class Hud {
 
         const list = Array.isArray(donors) ? donors.slice(0, MAX_DONORS) : [];
 
-        /* La tabla siempre está: vacía, invita a ser el primero. */
-        donorBoard.hidden = false;
-
+        /* La tabla aparece solo cuando hay donantes. */
         if (list.length === 0) {
-            const empty = document.createElement('li');
-            empty.className = 'donor-board__empty';
-            empty.textContent = 'Sé el primero en apoyar ✨';
-
-            donorBoardList.replaceChildren(empty);
+            donorBoard.hidden = true;
+            donorBoardList.replaceChildren();
             return;
         }
+
+        donorBoard.hidden = false;
 
         donorBoardList.replaceChildren(
             ...list.map((donor, index) => {

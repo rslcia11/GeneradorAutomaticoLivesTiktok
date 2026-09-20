@@ -806,6 +806,8 @@ function handleGift(event) {
    LIKE
    ============================================================ */
 
+let likeBase = null;
+
 function handleLike(event) {
 
     if (
@@ -815,9 +817,13 @@ function handleLike(event) {
         return;
     }
 
+    if (likeBase === null) {
+        likeBase = event.like.total;
+    }
+
     elements.likeCount.textContent =
         formatNumber(
-            event.like.total
+            Math.max(0, event.like.total - likeBase)
         );
 }
 

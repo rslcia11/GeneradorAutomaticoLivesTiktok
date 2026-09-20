@@ -1919,20 +1919,20 @@ body {
     align-items: center;
     gap: 0.5em;
 
-    padding: 0.35em 1.1em;
+    padding: 0.45em 1.4em;
 
-    border: 1.5px solid transparent;
+    border: 2px solid transparent;
     border-radius: 999px;
 
     background:
         linear-gradient(135deg, rgba(92, 36, 150, 0.95), rgba(28, 10, 56, 0.95)) padding-box,
         var(--hud-gold-edge) border-box;
 
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6), 0 0 14px rgba(168, 123, 255, 0.35);
 
     color: #ffeec2;
-    font-size: 2.5cqw;
-    font-weight: 600;
+    font-size: 3.2cqw;
+    font-weight: 700;
     letter-spacing: 0.02em;
     white-space: nowrap;
 
@@ -2146,6 +2146,18 @@ body {
     max-width: 38%;
     font-size: 2.5cqw;
 
+    /* Fondo oscuro para mejorar legibilidad sobre el video. */
+    background:
+        linear-gradient(160deg, rgba(18, 5, 38, 0.88), rgba(8, 2, 22, 0.9)) padding-box,
+        var(--hud-gold-edge) border-box !important;
+    border: 1.5px solid transparent;
+    border-radius: 1.1em;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow:
+        0 8px 30px rgba(0, 0, 0, 0.65),
+        inset 0 1px 0 rgba(255, 220, 140, 0.12);
+
     /* Entra y sale: nunca queda fijo (ver Hud.#cycleMenu). */
     opacity: 0;
     transform: translateX(6%);
@@ -2162,7 +2174,7 @@ body {
 .right-panel {
     position: absolute;
     z-index: 45;
-    bottom: 10%;
+    bottom: 22%;
     right: 3%;
 
     display: flex;
@@ -2193,19 +2205,21 @@ body {
     padding: 0.2em 0 0.5em;
 
     font-family: var(--hud-title-font);
-    font-size: 1em;
+    font-size: 1.15em;
     font-weight: 700;
     line-height: 1.15;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
     text-align: center;
     text-transform: uppercase;
 
-    background: linear-gradient(180deg, #fff6d8 10%, #f1c469 55%, #b9812f 100%);
+    background: linear-gradient(180deg, #ffffff 0%, #ffe680 30%, #f1c469 60%, #c98f2a 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
 
-    filter: drop-shadow(0 0 10px rgba(255, 200, 110, 0.35));
+    filter:
+        drop-shadow(0 0 8px rgba(255, 200, 80, 0.7))
+        drop-shadow(0 2px 4px rgba(0, 0, 0, 0.9));
 }
 
 /* Filete dorado con un rombo al centro, bajo el título. */

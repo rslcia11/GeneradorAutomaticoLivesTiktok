@@ -105,7 +105,7 @@ const TRICK_PHASES = Object.freeze({
 });
 
 /* Fundido entre poses y "rebote" del cuerpo al cambiar de pose. */
-const POSE_FADE_S = 0.22;
+const POSE_FADE_S = 0.45;
 const POSE_KICK_S = 0.45;
 
 /* Radio del anillo dibujado en createRingTexture (256 × 0.42). */
@@ -681,7 +681,7 @@ export class AnimatedAvatar {
         this.#layout();
 
         const target = STATE_PROFILES[this.state];
-        const blend = 1 - Math.exp(-dt * 3.5);
+        const blend = 1 - Math.exp(-dt * 2.2);
 
         /*
          * Con la sala callada la escena se mueve más (el backend manda
@@ -1208,7 +1208,7 @@ export class AnimatedAvatar {
 
         if (snap) {
             look.target     = Math.random() < 0.5 ? randomBetween(-0.28, -0.18) : randomBetween(0.18, 0.28);
-            look.speed      = randomBetween(8, 14);
+            look.speed      = randomBetween(4, 8);
             look.holdTimer  = randomBetween(0.6, 1.8);
             look.slowDownIn = look.holdTimer + 0.1;
         } else {

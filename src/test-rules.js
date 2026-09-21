@@ -27,12 +27,28 @@ function test(name, fn) {
 test('Comentario válido → QUEUE', () => {
     const result = engine.evaluate({
         type: 'comment',
-        content: 'Hola, esta es una pregunta'
+        content: 'Hola, ¿esta es una pregunta?'
     });
 
     assert.equal(result.action, ACTION.QUEUE);
     assert.equal(result.priority, PRIORITY.NORMAL);
     assert.equal(result.reason, 'valid_comment');
+});
+
+// 1b. Comentar no es preguntar
+test('Comentario que no pregunta → IGNORE sin gastar la cuota', () => {
+    const result = engine.evaluate({
+        type: 'comment',
+        content: 'Qué lindo tu gato negro'
+    });
+
+    assert.equal(result.action, ACTION.IGNORE);
+    assert.equal(result.reason, 'not_a_question');
+
+    /* Sin signos, como se escribe en el chat, sigue siendo pregunta. */
+    for (const content of ['me volvera a hablar', 'dime algo de mi trabajo', 'como me ira en el amor']) {
+        assert.equal(engine.evaluate({ type: 'comment', content }).action, ACTION.QUEUE, content);
+    }
 });
 
 // 2. Comentario vacío
@@ -261,7 +277,7 @@ test('Tarot keywords configurables → boost solo con lista custom', () => {
 
     const noBoost = customEngine.evaluate({
         type: 'comment',
-        content: 'Pregunta sobre tarot'   // 'tarot' no está en keywords custom
+        content: '¿Qué opinas del tarot?'   // 'tarot' no está en keywords custom
     });
 
     assert.equal(noBoost.priority, PRIORITY.NORMAL);

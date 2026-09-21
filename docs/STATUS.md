@@ -1,6 +1,6 @@
 # Estado del proyecto — Generador Automático de Lives de TikTok
 
-_Última actualización: 2026-09-19. Actualizar al cerrar cualquier cambio relevante._
+_Última actualización: 2026-09-20. Actualizar al cerrar cualquier cambio relevante._
 
 ## Dónde estamos
 
@@ -8,7 +8,16 @@ _Última actualización: 2026-09-19. Actualizar al cerrar cualquier cambio relev
 
 **Lo que pasó en ese LIVE, y manda sobre todo lo demás:** TikTok suspendió los regalos y restringió la visibilidad 10 minutos por *"acciones que se repiten o prolongan sin mediar interacción"*. Investigado: el contenido operado por IA sin presencia del creador no es elegible para monetización; los paneles estáticos, los íconos de regalo permanentes y los textos que piden regalos son los disparadores más fuertes; un avatar es tolerado si no ocupa más de la mitad del cuadro. **El dueño decidió seguir con el mago a pantalla completa, sin cámara**, y pidió imitar a las cuentas que aguantan: nada fijo, más variedad, comportamiento según la actividad de la sala. Ver [ADR 0002](adr/0002-live-sin-camara.md).
 
-**El servidor todavía sirve la versión anterior** (cartel fijo del teléfono, menú permanente). Hay que actualizarlo antes del próximo LIVE del cliente: `sudo TAROT_DOMAIN=magotarot.duckdns.org bash /opt/tarot/app/deploy/install.sh` (reinicia la instancia unos segundos).
+**Servidor actualizado el 2026-09-20** (`32450d2`, director de sala, menú rotativo, saludos sin género). Para llevar cualquier commit nuevo: `sudo TAROT_DOMAIN=magotarot.duckdns.org bash /opt/tarot/app/deploy/install.sh` (reinicia la instancia unos segundos; el overlay del cliente se reconecta solo).
+
+### Reglas del negocio que no se negocian (2026-09-20, del dueño)
+
+1. **Regalar = leer.** Quien regala cualquier cosa recibe una lectura del nivel que valga ese regalo (rosa → oráculo del día; 270 → tres cartas; 800 → cinco). El menú es una **lista de recompensas**, no una meta que se va llenando. Se retiró el contador de monedas por sesión que se había puesto en el menú.
+2. **La lectura gratis es una PREGUNTA cada 24 h, no un comentario.** "Qué lindo tu gato" no gasta la cuota; "me volverá a hablar" sí. Lo decide `src/rules/questions.js` (`isQuestion`), y el motor ignora con `not_a_question` lo que no pregunta.
+3. **La atención depende de cuánta gente haya.** Con sala vacía el mago saluda a cada persona que entra, contesta cada "hola", agradece cada compartido y algún like. Con sala llena, se calla: las interacciones ya dan movimiento. Lo decide `ActivityDirector.allowAck(kind)` (tasa por tipo según ánimo, cooldown por tipo, 6 s mínimo entre dos). **Nunca contadores fijos** ("1 de cada 15 likes"): con sala llena son una ametralladora de frases repetidas, que es lo que TikTok castiga.
+4. **Toda frase del mago va con voz y marcada como suya** (`source.type: 'idle'`). Un `ai_response` con `audio: null` es boca moviéndose en silencio, y sin `source` el overlay rotula "Respuesta para Usuario".
+5. **Agradecer no es pedir, ni prometer.** "Gracias por compartir" sí; "eso tiene su recompensa" no (carnada de interacción). Las frases viven en `src/live/ackLines.js` y el test las revisa contra palabras prohibidas y género.
+6. **Nada fijo en pantalla** ([ADR 0002](adr/0002-live-sin-camara.md)). El menú entra 25 s y se va 50 s; ahora hay un test que lo vigila, porque el ciclo se quitó una vez sin que nada avisara.
 
 ## Roadmap
 

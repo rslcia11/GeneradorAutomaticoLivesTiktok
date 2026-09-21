@@ -45,7 +45,10 @@ function createProcessor({
 } = {}) {
     return new EventProcessor({
         ruleEngine: new EventRuleEngine({
-            minGiftDiamondsForPriority: 10
+            minGiftDiamondsForPriority: 10,
+
+            /* Aquí se prueba el worker, no el filtro de preguntas (test-rules). */
+            requireQuestion: false
         }),
 
         queue: new PriorityQueue({

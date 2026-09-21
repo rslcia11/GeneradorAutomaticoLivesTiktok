@@ -7,7 +7,7 @@ import { retryWithBackoff } from './tiktok/retryWithBackoff.js';
 import { ActivityDirector } from './live/ActivityDirector.js';
 import { idleLine } from './live/idleLines.js';
 import { EventProcessor } from './events/EventProcessor.js';
-import { EventRuleEngine } from './rules/EventRuleEngine.js';
+import { EMOJI_ONLY_PATTERN, EventRuleEngine } from './rules/EventRuleEngine.js';
 import { PriorityQueue } from './rules/PriorityQueue.js';
 import { QueueWorker } from './workers/QueueWorker.js';
 import { AIService } from './ai/AIService.js';
@@ -22,7 +22,7 @@ import { createLedgerSaver, loadLedger } from './rules/ledgerStore.js';
 import { decorateMenu, normalizeGifts } from './rules/giftCatalog.js';
 import { asNumber, readStreamerConfig, resolveContact,resolvePromo, resolveTiktokUsername } from './config/streamerConfig.js';
 import { logger } from './logger.js';
-import { GREETINGS, INVITATIONS } from './ai/LivenessContent.js';
+import { ackLine } from './live/ackLines.js';
 
 /* Preferencias del streamer (frase y teléfono). Las claves siguen en .env. */
 const streamer = readStreamerConfig('./streamer.config.json');
@@ -157,51 +157,8 @@ const recentDonors = [];
  * grandes, nunca al mismo (ver OUTFITS en AnimatedAvatar.js).
  */
 const OUTFITS = 5;
-let outfitIndex    = 0;
+let outfitIndex = 0;
 let outfitChangedAt = 0;
-let memberCounter  = 0;
-let shareCounter   = 0;
-let likeCounter    = 0;
-let greetCounter   = 0;
-let emojiCounter   = 0;
-let quotaCounter   = 0;
-
-const SHARE_RESPONSES = Object.freeze([
-    '¡Gracias por compartir el LIVE! La magia viaja ahora contigo...',
-    '¡Compartiste! Las cartas te lo agradecen... tu energía se expande.',
-    '¡Gracias por llevar el oráculo a más personas! Eso tiene su recompensa...',
-    '¡Gracias por compartir! Más almas llegan al círculo místico.',
-    '¡Qué gesto tan generoso compartir! Las cartas te envían buena energía.',
-]);
-
-const LIKE_RESPONSES = Object.freeze([
-    '¡Gracias por el like! Tu energía alimenta el oráculo...',
-    '¡La bola de cristal brilla más con tu apoyo! Gracias.',
-    '¡Gracias por el like! Las cartas te lo devuelven en buena vibra.',
-    '¡Siento tu apoyo! El oráculo lo agradece profundamente.',
-]);
-
-const EMOJI_REACTIONS = Object.freeze([
-    '¡Esa energía llega fuerte! ¿Hay algo que quieras preguntarle a las cartas?',
-    'Las velas parpadearon con eso... ¿Qué hay en tu corazón hoy?',
-    '¡El oráculo siente esa vibra! Si tienes una duda, escríbela.',
-    'El mazo se agitó. ¿Hay algo que necesites saber?',
-    'Buena energía. Las cartas están listas si quieres una lectura.',
-]);
-
-const QUOTA_MESSAGES = Object.freeze([
-    u => `${u}, ya recibiste tu lectura de hoy. Mañana el mazo estará listo para ti de nuevo.`,
-    u => `El oráculo ya habló para ti hoy, ${u}. Vuelve mañana y las cartas tendrán otro mensaje.`,
-    u => `Ya leímos juntos hoy, ${u}. La energía necesita asentarse. ¡Hasta mañana!`,
-    u => `Por hoy es suficiente, ${u}. Las cartas descansan hasta mañana.`,
-]);
-
-/* Detecta comentarios compuestos solo de emojis (igual que EventRuleEngine). */
-const EMOJI_ONLY_RX = /^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+$/u;
-
-function nextResponse(arr) {
-    return arr[Math.floor(Math.random() * arr.length)];
-}
 
 function nextOutfit() {
     outfitIndex = (outfitIndex + Math.floor(Math.random() * (OUTFITS - 1)) + 1) % OUTFITS;
@@ -212,20 +169,90 @@ function nextOutfit() {
 /* El último que entró, para saludarlo si la sala está callada. */
 let newcomer = null;
 
-function pickGreeting(username) {
-    return GREETINGS[Math.floor(Math.random() * GREETINGS.length)](username);
+/* Lo último que dijo al reconocer a alguien: dos compartidos seguidos, dos frases. */
+const recentAcks = [];
+const ACK_MEMORY = 6;
+
+/**
+ * El mago reconoce algo que hizo el público: saluda a quien entra, contesta
+ * un "hola", agradece un compartido. Con la sala vacía sale siempre; con la
+ * sala llena, casi nunca (lo decide el director).
+ *
+ * Va con voz y marcado como frase del mago, igual que las del director: si
+ * no, la boca se mueve en silencio y el overlay rotula "Respuesta para...".
+ */
+async function acknowledge(kind, event = null) {
+
+    /* Sin LIVE o sin overlay no hay a quién hablarle. */
+    if (!tiktok.connected || gateway.clientCount === 0) {
+        return false;
+    }
+
+    const decidedAt = Date.now();
+
+    if (!director.allowAck(kind, decidedAt)) {
+        return false;
+    }
+
+    /*
+     * Se reserva el turno YA, antes de la voz (1-3 s): si no, una ráfaga
+     * de likes o tres entradas juntas pasan todas el filtro mientras la
+     * primera todavía se está sintetizando. Nada falla entre aquí y la
+     * emisión (la voz devuelve null en vez de lanzar), así que reservar
+     * es seguro.
+     */
+    director.registerAck(kind, decidedAt);
+
+    const name = event?.user?.nickname || event?.user?.username || null;
+    const text = ackLine(kind, { name, avoid: recentAcks });
+
+    recentAcks.push(text);
+
+    if (recentAcks.length > ACK_MEMORY) {
+        recentAcks.shift();
+    }
+
+    const audio = await speechService?.synthesizeForOverlay(text) ?? null;
+    const now = Date.now();
+
+    gateway.broadcast({
+        platform: 'system',
+        type: 'ai_response',
+        interactionId: randomUUID(),
+        timestamp: now,
+        text,
+        intent: 'invite_share',
+        audio,
+        user: null,
+        source: { platform: 'tiktok', type: 'idle', timestamp: now, content: null }
+    });
+
+    return true;
 }
 
-function broadcastQuick(text, user = null) {
-    gateway.broadcast({
-        platform:      'system',
-        type:          'ai_response',
-        interactionId: randomUUID(),
-        text,
-        intent:        'invite_share',
-        audio:         null,
-        user,
-        source:        null
+/* Reconocer nunca puede tumbar la app: si falla la voz, se anota y sigue. */
+function acknowledgeSafely(kind, event = null, then = null) {
+    acknowledge(kind, event)
+        .then(spoke => then?.(spoke))
+        .catch(error => logger.warn(`No se pudo reconocer ${kind}: ${error.message}`));
+}
+
+/*
+ * Quien entra se saluda al momento si la sala está tranquila. Si no tocó
+ * (sala llena), queda como "recién llegado" y el director puede saludarlo
+ * en su próxima frase. Nunca las dos cosas.
+ */
+function acknowledgeMember(event) {
+    const name = event.user?.nickname || event.user?.username;
+    const arrived = name ? { name, at: Date.now() } : null;
+
+    newcomer = arrived;
+
+    acknowledgeSafely('member', event, spoke => {
+        /* Si mientras hablaba entró otra persona, esa sigue pendiente. */
+        if (spoke && newcomer === arrived) {
+            newcomer = null;
+        }
     });
 }
 
@@ -813,14 +840,9 @@ tiktok.onEvent(event => {
 
     logger.debug(`📥 TikTok → ${event.type}`);
 
-    /*
-     * El director mira la sala: quién hay y si alguien PARTICIPA.
-     * Entrar (member), dar like o irse no es participar.
-     */
+    /* El director mira cuánta gente hay. */
     if (event.type === 'room_user') {
         director.setViewers(event.data?.totalUsers);
-    } else if (PARTICIPATION_EVENTS.has(event.type)) {
-        director.registerInteraction();
     }
 
     /*
@@ -849,83 +871,40 @@ tiktok.onEvent(event => {
         }
     }
 
-    /* Quien acaba de entrar puede recibir un saludo del director (con voz). */
     if (event.type === 'member') {
-        const name = event.user?.nickname || event.user?.username;
-
-        newcomer = name ? { name, at: Date.now() } : null;
-
-        memberCounter = (memberCounter + 1) % 8;
-
-        if (memberCounter === 0) {
-            const username =
-                event.user?.nickname ||
-                event.user?.username ||
-                'viajero';
-
-            broadcastQuick(pickGreeting(username), event.user ?? null);
-        }
+        acknowledgeMember(event);
     }
 
-    /* Agradece shares: 1 de cada 2. */
-    if (event.type === 'share') {
-        shareCounter = (shareCounter + 1) % 2;
-
-        if (shareCounter === 0) {
-            broadcastQuick(nextResponse(SHARE_RESPONSES));
-        }
-    }
-
-    /* Agradece likes: 1 de cada 15. */
-    if (event.type === 'like') {
-        likeCounter = (likeCounter + 1) % 15;
-
-        if (likeCounter === 0) {
-            broadcastQuick(nextResponse(LIKE_RESPONSES));
-        }
+    if (event.type === 'share' || event.type === 'like') {
+        acknowledgeSafely(event.type, event);
     }
 
     const result =
         processor.process(event);
 
-    /* Comentarios ignorados: fillers y emojis. */
-    if (
-        event.type === 'comment' &&
-        !result.queued &&
-        result.decision?.reason === 'filler_comment'
-    ) {
+    /*
+     * Comentarios que no van a la IA: un "hola", emojis, un comentario
+     * suelto o alguien que ya usó su lectura de hoy. Ninguno se queda sin
+     * respuesta mientras la sala esté tranquila.
+     */
+    if (event.type === 'comment' && !result.queued) {
         const content = event.content?.trim() ?? '';
-        const username = event.user?.nickname || event.user?.username || 'viajero';
+        const reason = result.decision?.reason;
 
-        if (EMOJI_ONLY_RX.test(content)) {
-            /* Emojis: reacción corta 1 de cada 5. */
-            emojiCounter = (emojiCounter + 1) % 5;
-            if (emojiCounter === 0) {
-                broadcastQuick(nextResponse(EMOJI_REACTIONS), event.user ?? null);
-            }
-        } else {
-            /* Palabras de relleno: saludo o invitación 1 de cada 2. */
-            greetCounter = (greetCounter + 1) % 2;
-            if (greetCounter === 0) {
-                const useGreeting = Math.random() < 0.5;
-                const text = useGreeting
-                    ? pickGreeting(username)
-                    : INVITATIONS[Math.floor(Math.random() * INVITATIONS.length)].text;
-                broadcastQuick(text, event.user ?? null);
-            }
+        if (reason === 'free_quota_used') {
+            acknowledgeSafely('quota', event);
+        } else if (reason === 'filler_comment' || reason === 'not_a_question') {
+            acknowledgeSafely(EMOJI_ONLY_PATTERN.test(content) ? 'emoji' : 'greeting', event);
         }
     }
 
-    /* Ya usó la lectura gratis hoy: aviso amable 1 de cada 2. */
-    if (
-        event.type === 'comment' &&
-        result.decision?.reason === 'free_quota_used'
-    ) {
-        quotaCounter = (quotaCounter + 1) % 2;
-        if (quotaCounter === 0) {
-            const username = event.user?.nickname || event.user?.username || 'viajero';
-            broadcastQuick(QUOTA_MESSAGES[Math.floor(Math.random() * QUOTA_MESSAGES.length)](username), event.user ?? null);
-        }
+    /*
+     * Alguien PARTICIPÓ (entrar o dar like no cuenta). Se anota DESPUÉS de
+     * decidir si se le reconoce: el primer "hola" de una sala vacía debe
+     * verse como sala vacía, no como sala que ya se mueve.
+     */
+    if (PARTICIPATION_EVENTS.has(event.type)) {
+        director.registerInteraction();
     }
 
     /*

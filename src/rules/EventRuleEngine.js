@@ -1,4 +1,7 @@
-const EMOJI_ONLY_PATTERN = /^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+$/u;
+import { isQuestion } from './questions.js';
+
+/* Comentario hecho solo de emojis. Exportado: app.js decide con el mismo criterio cómo reaccionar. */
+export const EMOJI_ONLY_PATTERN = /^[\p{Emoji_Presentation}\p{Extended_Pictographic}\s]+$/u;
 
 const DEFAULT_GREETING_WORDS = new Set([
     'hola', 'hi', 'hello', 'xd', 'jaja', 'jajaja', 'jajajaja', 'jajajajaja',
@@ -39,6 +42,9 @@ export class EventRuleEngine {
             tarotKeywords = DEFAULT_TAROT_KEYWORDS,
             tarotBoostPriority = PRIORITY.HIGH,
             minCommentLength = 2,
+
+            /* Solo las preguntas van a la IA (y gastan la cuota). */
+            requireQuestion = true,
             ...rest
         } = config;
 
@@ -49,6 +55,7 @@ export class EventRuleEngine {
         this.tarotKeywords = tarotKeywords;
         this.tarotBoostPriority = tarotBoostPriority;
         this.minCommentLength = minCommentLength;
+        this.requireQuestion = requireQuestion;
 
         this.config = {
             commentsEnabled: true,
@@ -119,7 +126,19 @@ export class EventRuleEngine {
             return this.#ignore('filler_comment');
         }
 
-        const decision = this.policy?.evaluateComment(event);
+        /*
+         * Comentar no es preguntar. La lectura gratis del día se gasta solo
+         * con una pregunta; lo demás se reconoce en pantalla sin cobrarlo.
+         * Quien regaló, en cambio, recibe su lectura diga lo que diga: eso
+         * lo decide la política, que sabe quién pagó.
+         */
+        const question = !this.requireQuestion || isQuestion(content);
+
+        if (!this.policy && !question) {
+            return this.#ignore('not_a_question');
+        }
+
+        const decision = this.policy?.evaluateComment(event, { question });
 
         /*
          * Sin apoyo y ya usó su respuesta gratis del día:

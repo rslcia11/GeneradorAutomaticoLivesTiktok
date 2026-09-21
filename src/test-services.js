@@ -47,7 +47,8 @@ function createClock(start = 1_700_000_000_000) {
     };
 }
 
-const comment = (id, content = 'Una pregunta del día') => ({
+/* Pregunta sin palabras de tarot: así no altera la prioridad por servicio. */
+const comment = (id, content = '¿Me volverá a hablar?') => ({
     type: 'comment',
     user: { id, username: `user${id}` },
     content
@@ -470,6 +471,27 @@ test('El motor ignora la segunda pregunta gratis: nunca llega a la IA', () => {
 
     assert.equal(second.action, 'ignore');
     assert.equal(second.reason, 'free_quota_used');
+});
+
+test('Comentar sin preguntar no gasta la lectura gratis; quien regaló la recibe igual', () => {
+    const policy = new ServicePolicy();
+    const engine = new EventRuleEngine({ policy });
+
+    /* Gratis: el comentario suelto se ignora y la cuota sigue intacta. */
+    const suelto = engine.evaluate(comment('u1', 'Qué lindo tu gato negro'));
+
+    assert.equal(suelto.action, 'ignore');
+    assert.equal(suelto.reason, 'not_a_question');
+    assert.equal(engine.evaluate(comment('u1')).action, 'queue', 'la pregunta de hoy sigue disponible');
+
+    /* Pagó: se le lee diga lo que diga, y se le cobra una sola vez. */
+    policy.registerGift(gift('rico', 29));
+
+    const pagado = engine.evaluate(comment('rico', 'estoy triste por mi ex'));
+
+    assert.equal(pagado.action, 'queue');
+    assert.equal(pagado.metadata.service.id, 'oraculo_dia');
+    assert.equal(policy.stats.paidGranted, 1);
 });
 
 test('El motor da más prioridad a quien apoya más', () => {

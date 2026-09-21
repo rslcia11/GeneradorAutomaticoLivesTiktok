@@ -137,4 +137,4 @@ export function idleLine({ mood = 'quiet', avoid = [], newcomer = null } = {}, r
     return { text: choose(fresh(BY_MOOD[known], avoid), random), intent: 'invite_share' };
 }
 
-export { QUIET, WARMING, BUSY };
+export { QUIET, WARMING, BUSY, choose, fresh };

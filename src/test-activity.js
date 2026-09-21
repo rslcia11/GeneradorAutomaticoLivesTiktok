@@ -1,8 +1,18 @@
 import assert from 'node:assert/strict';
 
-import { ActivityDirector, FIRST_LINE_MS, IDLE_EVERY_MS, MIN_SILENCE_MS, WINDOW_MS } from './live/ActivityDirector.js';
+import {
+    ACK_COOLDOWN_MS,
+    ActivityDirector,
+    FIRST_LINE_MS,
+    IDLE_EVERY_MS,
+    MIN_ACK_GAP_MS,
+    MIN_SILENCE_MS,
+    WINDOW_MS
+} from './live/ActivityDirector.js';
 import { BUSY, idleLine, QUIET, WARMING } from './live/idleLines.js';
+import { ackLine, EMOJI, GREETING, LIKE, MEMBER, QUOTA, SHARE } from './live/ackLines.js';
 import { GREETINGS, READINGS } from './ai/LivenessContent.js';
+import { isQuestion } from './rules/questions.js';
 
 let passed = 0;
 let total = 0;
@@ -132,7 +142,182 @@ test('Nunca habla encima del mago: espera tras una respuesta', () => {
 });
 
 
-// 3. Frases
+// 3. Reconocer al público según la sala
+/* Decide y, si salió, lo anota: como hace app.js al emitir. */
+const ack = (director, kind, now, random) => {
+    const spoke = director.allowAck(kind, now, random);
+
+    if (spoke) {
+        director.registerAck(kind, now);
+    }
+
+    return spoke;
+};
+
+test('Sala vacía: saluda a todo el que entra y contesta cada hola', () => {
+    const director = createDirector();
+    let now = START;
+
+    for (const kind of ['member', 'greeting', 'share', 'member', 'greeting']) {
+        assert.ok(ack(director, kind, now), `${kind} en sala vacía`);
+        now += MIN_ACK_GAP_MS;
+    }
+});
+
+test('Decidir no gasta el turno: solo emitir lo gasta', () => {
+    const director = createDirector();
+
+    assert.ok(director.allowAck('member', START));
+    assert.ok(director.allowAck('share', START + 1), 'la decisión anterior no se emitió');
+
+    director.registerAck('member', START + 1);
+    assert.equal(director.allowAck('share', START + 2), false);
+});
+
+test('Mientras el mago lee para alguien, no saluda a nadie', () => {
+    const director = createDirector();
+
+    director.registerBusy(START);
+
+    assert.equal(director.allowAck('member', START + MIN_SILENCE_MS - 1), false);
+    assert.ok(director.allowAck('member', START + MIN_SILENCE_MS));
+});
+
+test('El director no habla solo pisando un saludo reciente', () => {
+    const director = createDirector();
+    const when = START + FIRST_LINE_MS;
+
+    director.registerAck('member', when);
+
+    assert.equal(director.direct(when + MIN_ACK_GAP_MS - 1).speak, null);
+    assert.equal(director.direct(when + MIN_ACK_GAP_MS).speak?.text, 'quiet-1');
+});
+
+test('Sala movida: no reconoce nada, la sala ya se mueve sola', () => {
+    const director = createDirector();
+
+    for (let i = 0; i < 3; i++) {
+        director.registerInteraction(START + i);
+    }
+
+    for (const kind of ['member', 'greeting', 'share', 'like', 'emoji']) {
+        assert.equal(director.allowAck(kind, START + 10, () => 0), false, kind);
+    }
+
+    /* Avisar que ya usó su lectura sigue teniendo sentido, a veces. */
+    assert.equal(director.allowAck('quota', START + 10, () => 0), true);
+});
+
+test('Sala tibia: reconoce una parte, según el azar', () => {
+    const director = createDirector();
+
+    director.setViewers(12);
+
+    assert.equal(director.allowAck('member', START, () => 0.9), false, 'azar alto → no');
+    assert.equal(director.allowAck('member', START, () => 0.1), true, 'azar bajo → sí');
+    assert.equal(director.allowAck('like', START + MIN_ACK_GAP_MS, () => 0), false, 'likes solo en sala vacía');
+});
+
+test('Entre dos reconocimientos siempre cabe la voz del anterior', () => {
+    const director = createDirector();
+
+    assert.ok(ack(director, 'member', START));
+    assert.equal(ack(director, 'share', START + MIN_ACK_GAP_MS - 1), false);
+    assert.ok(ack(director, 'share', START + MIN_ACK_GAP_MS));
+});
+
+test('Los likes se agradecen como mucho cada tanto, aunque la sala esté vacía', () => {
+    const director = createDirector();
+
+    assert.ok(ack(director, 'like', START));
+    assert.equal(ack(director, 'like', START + ACK_COOLDOWN_MS.like - 1), false);
+    assert.ok(ack(director, 'like', START + ACK_COOLDOWN_MS.like));
+});
+
+test('Tipo desconocido: no se reconoce', () => {
+    assert.equal(createDirector().allowAck('baile', START), false);
+});
+
+test('Las frases de reconocimiento llevan el apodo cuando lo hay', () => {
+    assert.match(ackLine('member', { name: 'Mayra' }, () => 0), /Mayra/);
+    assert.match(ackLine('greeting', { name: 'Mayra' }, () => 0), /Mayra/);
+    assert.match(ackLine('quota', { name: 'Mayra' }, () => 0), /Mayra/);
+    assert.equal(typeof ackLine('share', {}, () => 0), 'string');
+    assert.equal(ackLine('baile'), null);
+});
+
+test('Dos compartidos seguidos no se agradecen con la misma frase', () => {
+    const first = ackLine('share', {}, () => 0);
+    const second = ackLine('share', { avoid: [first] }, () => 0);
+
+    assert.notEqual(second, first);
+    assert.ok(SHARE.includes(second));
+});
+
+test('Ningún reconocimiento pide ni promete nada a cambio', () => {
+    const prohibidas = /regal|dale like|sígueme|sigueme|comparte|comparta|suscrí|monedas|\brosas?\b|recompensa|a cambio/i;
+    const genero = /\b(?:bienvenid|viajer|list|amig|querid|seguid|preparad|dispuest)[oa]s?\b/i;
+
+    for (const pool of [MEMBER, GREETING, SHARE, LIKE, EMOJI, QUOTA]) {
+        for (const entry of pool) {
+            const text = typeof entry === 'function' ? entry('x') : entry;
+
+            assert.doesNotMatch(text, prohibidas, text);
+            assert.doesNotMatch(text, genero, text);
+        }
+    }
+});
+
+
+// 4. Qué cuenta como pregunta (solo eso gasta la lectura del día)
+test('Reconoce preguntas escritas como se escribe en el chat', () => {
+    const preguntas = [
+        '¿Qué dice el tarot sobre mi trabajo?',
+        'me volvera a hablar',
+        'dime algo de mi trabajo',
+        'como me ira en el amor',
+        'que ves en mi futuro',
+        'sera que consigo trabajo',
+        'mi ex regresara',
+        'cuando llega el dinero',
+        'quiero saber de mi pareja',
+        'quiero una lectura de amor',
+        'hola como me ira este año',
+        'y cuando volvera mi ex',
+        'podria irme del pais'
+    ];
+
+    for (const text of preguntas) {
+        assert.ok(isQuestion(text), text);
+    }
+});
+
+test('Un comentario suelto no es pregunta y no gasta la cuota', () => {
+    const comentarios = [
+        'Qué lindo tu gato negro',
+        'que bonita historia',
+        'maria estuvo aqui',
+        'me gusta la feria',
+        'saludos desde ecuador',
+        'buenas noches a todos',
+
+        /* Verbos de uso general y adverbios en medio de la frase. */
+        'me ire a dormir chau',
+        'me encanta como hablas',
+        'seria genial',
+        'cuando quieras',
+        'estoy triste por mi ex',
+        '',
+        null
+    ];
+
+    for (const text of comentarios) {
+        assert.equal(isQuestion(text), false, String(text));
+    }
+});
+
+
+// 5. Frases
 /* random alto → nunca saluda ni hace carta del día: invita. */
 const invite = () => 0.99;
 

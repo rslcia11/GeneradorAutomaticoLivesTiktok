@@ -26,6 +26,33 @@ const IDLE_EVERY_MS = Object.freeze({
 const MIN_SILENCE_MS = 20_000;
 const FIRST_LINE_MS = 45_000;
 
+/*
+ * Reconocer lo que hace el público (entrar, saludar, compartir, un like)
+ * depende de cuánta gente haya. Con la sala vacía el mago saluda a todos;
+ * con la sala llena sería una ametralladora de frases repetidas, que es
+ * justo lo que TikTok castiga. Qué parte se reconoce, de 0 a 1:
+ */
+const ACK_RATE = Object.freeze({
+    member:   Object.freeze({ quiet: 1,   warming: 0.3, busy: 0 }),
+    greeting: Object.freeze({ quiet: 1,   warming: 0.5, busy: 0 }),
+    share:    Object.freeze({ quiet: 1,   warming: 0.5, busy: 0 }),
+    like:     Object.freeze({ quiet: 1,   warming: 0,   busy: 0 }),
+    emoji:    Object.freeze({ quiet: 0.5, warming: 0,   busy: 0 }),
+    quota:    Object.freeze({ quiet: 1,   warming: 0.5, busy: 0.3 })
+});
+
+/* Cada cuánto, como mucho, se reconoce algo de este tipo. */
+const ACK_COOLDOWN_MS = Object.freeze({
+    like: 180_000,
+    emoji: 45_000
+});
+
+/* Entre dos reconocimientos siempre cabe la voz del anterior. */
+const MIN_ACK_GAP_MS = 6_000;
+
+/* ¿Pasó menos de `gapMs` desde `last`? Sin marca previa, nunca es pronto. */
+const tooSoon = (last, gapMs, now) => last != null && now - last < gapMs;
+
 export class ActivityDirector {
 
     #interactions = [];
@@ -34,6 +61,8 @@ export class ActivityDirector {
     #lastLineAt = null;
     #lastBusyAt = null;
     #recentLines = [];
+    #lastAckAt = null;
+    #lastAckByKind = new Map();
 
     /**
      * @param {object} options
@@ -66,8 +95,50 @@ export class ActivityDirector {
         this.#lastBusyAt = now;
     }
 
+    /**
+     * ¿El mago reconoce esto que acaba de pasar? Decide según cómo esté la
+     * sala: cuanta menos gente, más atención personal recibe cada uno.
+     *
+     * Solo decide. Cuando la frase salió de verdad (con voz), se anota con
+     * `registerAck`; si la voz falló, no se gasta el turno de nadie.
+     *
+     * @param {'member'|'greeting'|'share'|'like'|'emoji'|'quota'} kind
+     * @returns {boolean}
+     */
+    allowAck(kind, now = Date.now(), random = Math.random) {
+
+        if (!ACK_RATE[kind]) {
+            return false;
+        }
+
+        /*
+         * Lo barato primero: la mayoría de los likes muere aquí sin mirar
+         * la sala. Y mientras el mago lee para alguien, no saluda a nadie.
+         */
+        if (
+            tooSoon(this.#lastAckAt, MIN_ACK_GAP_MS, now) ||
+            tooSoon(this.#lastBusyAt, MIN_SILENCE_MS, now) ||
+            tooSoon(this.#lastAckByKind.get(kind), ACK_COOLDOWN_MS[kind] ?? 0, now)
+        ) {
+            return false;
+        }
+
+        const rate = ACK_RATE[kind][this.mood(now)] ?? 0;
+
+        return rate > 0 && (rate >= 1 || random() < rate);
+    }
+
+    /** El reconocimiento salió: cuenta para el hueco mínimo y el cooldown. */
+    registerAck(kind, now = Date.now()) {
+        this.#lastAckAt = now;
+        this.#lastAckByKind.set(kind, now);
+    }
+
+    /* Las marcas llegan en orden: se sueltan las viejas por delante, sin copiar. */
     #recent(now) {
-        this.#interactions = this.#interactions.filter(time => now - time < WINDOW_MS);
+        while (this.#interactions.length > 0 && now - this.#interactions[0] >= WINDOW_MS) {
+            this.#interactions.shift();
+        }
 
         return this.#interactions.length;
     }
@@ -113,6 +184,11 @@ export class ActivityDirector {
             return null;
         }
 
+        /* Ni pisando un saludo que acaba de salir. */
+        if (this.#lastAckAt !== null && now - this.#lastAckAt < MIN_ACK_GAP_MS) {
+            return null;
+        }
+
         if (now - this.#startedAt < FIRST_LINE_MS) {
             return null;
         }
@@ -145,4 +221,13 @@ export class ActivityDirector {
     }
 }
 
-export { BUSY_INTERACTIONS, IDLE_EVERY_MS, WINDOW_MS, FIRST_LINE_MS, MIN_SILENCE_MS };
+export {
+    ACK_COOLDOWN_MS,
+    ACK_RATE,
+    BUSY_INTERACTIONS,
+    FIRST_LINE_MS,
+    IDLE_EVERY_MS,
+    MIN_ACK_GAP_MS,
+    MIN_SILENCE_MS,
+    WINDOW_MS
+};

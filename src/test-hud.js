@@ -185,14 +185,19 @@ test('Muestra como máximo 5 donantes', () => {
     assert.equal(elements.donorBoardList.children.length, 5);
 });
 
-test('Sin donantes, la tabla sigue visible e invita a ser el primero', () => {
+test('Sin donantes, la tabla se oculta: vacía sería pedir apoyo', () => {
     const { hud, elements } = createHud();
 
     hud.handle({ type: 'donor_board', donors: [] });
 
+    assert.equal(elements.donorBoard.hidden, true);
+    assert.equal(elements.donorBoardList.children.length, 0);
+
+    /* Con el primer donante aparece. */
+    hud.handle({ type: 'donor_board', donors: [{ nickname: 'Mayra', gift: 'Rosa', coins: 1, at: Date.now() }] });
+
     assert.equal(elements.donorBoard.hidden, false);
-    assert.equal(elements.donorBoardList.children.length, 1);
-    assert.match(textOf(elements.donorBoardList), /primero/);
+    assert.match(textOf(elements.donorBoardList), /Mayra/);
 });
 
 test('El menú muestra el regalo ORIGINAL de TikTok y su precio real', () => {
@@ -333,6 +338,38 @@ test('Los temporizadores por defecto funcionan como en el navegador', () => {
         globalThis.setTimeout = realSetTimeout;
         globalThis.clearTimeout = realClearTimeout;
     }
+});
+
+
+// 2b. El menú nunca queda fijo (ADR 0002: TikTok castiga los paneles de regalos permanentes)
+test('El menú de servicios entra, se va solo y vuelve', () => {
+    const { hud, elements, timers } = createHud();
+
+    hud.handle({
+        type: 'service_menu',
+        services: [{ id: 'oraculo_dia', label: 'Oráculo del Día', icon: '🌹', coins: 29 }]
+    });
+
+    const menu = elements.serviceMenu;
+
+    assert.equal(menu.hidden, false, 'aparece con la primera lista');
+    assert.equal(timers.length, 1, 'la animación de entrada va en el turno siguiente');
+
+    timers[0]();
+    assert.ok(menu.classList.contains('service-menu--visible'), 'visible');
+    assert.equal(timers.length, 2, 'queda agendada la salida');
+
+    timers[1]();
+    assert.ok(!menu.classList.contains('service-menu--visible'), 'empieza a irse');
+
+    timers[2]();
+    assert.equal(menu.hidden, true, 'se fue del todo');
+    assert.equal(timers.length, 4, 'queda agendada la vuelta');
+
+    timers[3]();
+    assert.equal(menu.hidden, false, 'segunda vuelta');
+
+    hud.destroy();
 });
 
 

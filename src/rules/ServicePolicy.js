@@ -99,8 +99,12 @@ export class ServicePolicy {
     /**
      * ¿Se responde este comentario y con qué servicio?
      * Consume la respuesta gratis cuando corresponde.
+     *
+     * `question`: si el comentario pregunta algo. Quien regaló recibe su
+     * lectura diga lo que diga ("estoy triste por mi ex" también se lee);
+     * la gratis del día, en cambio, solo se gasta con una pregunta.
      */
-    evaluateComment(event) {
+    evaluateComment(event, { question = true } = {}) {
 
         const userId = userIdOf(event);
         const balance = this.ledger.balanceOf(userId);
@@ -123,6 +127,15 @@ export class ServicePolicy {
                 balance,
                 remaining,
                 priority: service.priority
+            };
+        }
+
+        if (!question) {
+            return {
+                allowed: false,
+                reason: 'not_a_question',
+                service: this.free,
+                balance
             };
         }
 

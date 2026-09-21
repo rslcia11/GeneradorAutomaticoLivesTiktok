@@ -24,7 +24,10 @@ function createProcessor({
 } = {}) {
     return new EventProcessor({
         ruleEngine: new EventRuleEngine({
-            minGiftDiamondsForPriority
+            minGiftDiamondsForPriority,
+
+            /* Aquí se prueba la cola, no el filtro de preguntas (test-rules). */
+            requireQuestion: false
         }),
 
         queue: new PriorityQueue({

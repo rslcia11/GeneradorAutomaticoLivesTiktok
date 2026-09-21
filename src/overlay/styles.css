@@ -1910,10 +1910,9 @@ body {
     position: absolute;
     z-index: 50;
 
-    /* Sobre las notificaciones de regalos (top: 9%), que son opacas. */
     top: 5.4%;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 2%;
+    transform: none;
 
     display: flex;
     align-items: center;

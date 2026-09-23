@@ -31,7 +31,7 @@ Seguir con el mago a pantalla completa y sin cámara, y reducir al mínimo las
 señales de "transmisión desatendida":
 
 1. **Nada fijo en pantalla.** El menú de servicios entra y sale (25 s visible,
-   50 s oculto). El teléfono no tiene cartel: viaja dentro de la franja de
+   30 s oculto). El teléfono no tiene cartel: viaja dentro de la franja de
    contacto temporizada.
 2. **Nunca pedir regalos, likes ni follows** en texto ni en voz. Las frases del
    mago invitan a preguntar; una prueba lo verifica.

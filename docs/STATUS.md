@@ -17,7 +17,7 @@ _Última actualización: 2026-09-20. Actualizar al cerrar cualquier cambio relev
 3. **La atención depende de cuánta gente haya.** Con sala vacía el mago saluda a cada persona que entra, contesta cada "hola", agradece cada compartido y algún like. Con sala llena, se calla: las interacciones ya dan movimiento. Lo decide `ActivityDirector.allowAck(kind)` (tasa por tipo según ánimo, cooldown por tipo, 6 s mínimo entre dos). **Nunca contadores fijos** ("1 de cada 15 likes"): con sala llena son una ametralladora de frases repetidas, que es lo que TikTok castiga.
 4. **Toda frase del mago va con voz y marcada como suya** (`source.type: 'idle'`). Un `ai_response` con `audio: null` es boca moviéndose en silencio, y sin `source` el overlay rotula "Respuesta para Usuario".
 5. **Agradecer no es pedir, ni prometer.** "Gracias por compartir" sí; "eso tiene su recompensa" no (carnada de interacción). Las frases viven en `src/live/ackLines.js` y el test las revisa contra palabras prohibidas y género.
-6. **Nada fijo en pantalla** ([ADR 0002](adr/0002-live-sin-camara.md)). El menú entra 25 s y se va 50 s; ahora hay un test que lo vigila, porque el ciclo se quitó una vez sin que nada avisara.
+6. **Nada fijo en pantalla** ([ADR 0002](adr/0002-live-sin-camara.md)). El menú entra 25 s y se va 30 s (decisión del dueño, 2026-09-23); hay un test que lo vigila, porque el ciclo ya se quitó **dos veces** sin que nadie avisara. Si hace falta más visibilidad, se alarga el rato visible o se acorta el oculto — pero fijo, nunca.
 
 ## Roadmap
 
@@ -36,7 +36,7 @@ _Última actualización: 2026-09-20. Actualizar al cerrar cualquier cambio relev
 ## Hecho recientemente (2026-09-19)
 
 - **Director de sala** (`src/live/ActivityDirector.js`, `idleLines.js`): mide espectadores y participación (comentarios, regalos, follows, shares; entrar o dar like no cuenta) y decide el ánimo `quiet | warming | busy`. Con sala callada el mago habla solo cada ~75 s con frases de plantilla (sin IA, sin pedir regalos ni follows, sin repetirse) y manda `scene_mood` al overlay para subir la animación en reposo. Nunca habla encima de una respuesta, ni sin LIVE, ni sin overlay conectado. 14 pruebas.
-- **HUD sin nada fijo:** el menú de servicios aparece 25 s y se oculta 50 s; el cartel estático del teléfono se eliminó y el número viaja dentro de la franja temporizada.
+- **HUD sin nada fijo:** el menú de servicios aparece 25 s y se oculta 30 s; el cartel estático del teléfono se eliminó y el número viaja dentro de la franja temporizada.
 - **Servidor alojado** ([ADR 0001](adr/0001-overlay-alojado.md)): `RealtimeGateway` sirve página + WebSocket con clave `?key=` (comparación en tiempo constante, decidida por el archivo servido, no por cómo se escribe la URL), Origin contra Host, CSP, `/healthz`. `deploy/` con `install.sh`, `nuevo-cliente.sh`, Caddyfile y unidad systemd con `DynamicUser` por cliente. Revisión de seguridad hecha; dos hallazgos corregidos (bypass de clave por `/%2findex.html`, clave en el log de errores de Caddy).
 - **Reconexión unificada** (`retryWithBackoff`): con `RECONNECT_MAX_ATTEMPTS=0` espera el próximo LIVE para siempre, tope 2 min entre intentos (≈720 firmas de Euler al día, bajo el límite gratis de 2 500).
 - **Del otro dev, integrado en main:** logging estructurado, circuit breaker, plantillas de agradecimiento, filtros de cola, puesto en fila, barra de respuesta, promo configurable, esfera armilar, música y efectos, menú estilo TikTok con contador hasta medianoche, cartas solo en lecturas.

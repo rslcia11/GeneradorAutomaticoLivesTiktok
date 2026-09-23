@@ -31,7 +31,7 @@ const FADE_MS = 600;
 
 /* El menú de servicios se muestra a ratos, nunca fijo. */
 const MENU_VISIBLE_MS = 25_000;
-const MENU_HIDDEN_MS = 50_000;
+const MENU_HIDDEN_MS = 30_000;
 
 function iconOf(service) {
 
@@ -177,14 +177,7 @@ export class Hud {
         );
 
         this.#startDayTimer();
-
-        if (this.menuTimer !== null) {
-            this.clearTimer(this.menuTimer);
-            this.menuTimer = null;
-        }
-
-        serviceMenu.hidden = false;
-        this.setTimer(() => serviceMenu.classList.add('service-menu--visible'), 0);
+        this.#cycleMenu();
     }
 
     showDonors(donors) {
@@ -356,7 +349,8 @@ export class Hud {
      * El menú NO vive fijo en pantalla: aparece un rato y se va.
      *
      * TikTok penaliza los paneles estáticos y, sobre todo, tener íconos de
-     * regalo y precios permanentes: lo lee como pedir regalos.
+     * regalo y precios permanentes: lo lee como pedir regalos. Ya costó una
+     * suspensión de regalos en el primer LIVE del cliente (ver ADR 0002).
      */
     #cycleMenu() {
 

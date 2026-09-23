@@ -78,6 +78,11 @@ cliente sale en vivo, y se conecta solo.
 La URL es su llave: si la comparte, cualquiera ve su overlay. Si se filtra,
 cambia `OVERLAY_KEY` en su `.env`, reinicia la instancia y mándale la nueva.
 
+**Volumen de la música, sin desplegar.** Se agrega `&musica=` con el
+porcentaje: `&musica=0` la apaga, `&musica=15` la sube. Por defecto es 7 %,
+que se oye de fondo sin tapar la voz. El cliente cambia la URL en su fuente
+y listo; no hace falta tocar el servidor.
+
 ## 4. Operar
 
 ```bash

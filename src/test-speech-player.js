@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { SpeechPlayer, base64ToArrayBuffer } from './overlay/SpeechPlayer.js';
+import { musicVolumeFrom } from './overlay/AmbientAudio.js';
 
 /*
  * AudioContext falso: Node no tiene Web Audio.
@@ -194,6 +195,31 @@ await test('Audio sin datos → AUDIO_INVALID', async () => {
 
     for (const audio of [undefined, {}, { data: '' }, { data: 42 }]) {
         await assert.rejects(player.play(audio), { code: 'AUDIO_INVALID' });
+    }
+});
+
+
+/*
+ * Música: el volumen se afina desde la URL para no desplegar por un número.
+ * El valor por defecto tiene que OÍRSE bajo la voz: ya pasó que quedara en
+ * 0.015 y la música desapareciera del LIVE.
+ */
+await test('?musica= ajusta el volumen en %, con un fondo audible por defecto', async () => {
+    const at = query => musicVolumeFrom(new URLSearchParams(query));
+
+    assert.equal(at('?musica=0'), 0, 'sin música');
+    assert.equal(at('?musica=25'), 0.25);
+    assert.equal(at('?musica=100'), 1);
+
+    /* Fuera de rango, se recorta. */
+    assert.equal(at('?musica=500'), 1);
+    assert.equal(at('?musica=-10'), 0);
+
+    /* Sin parámetro o con basura, un fondo suave pero audible. */
+    for (const query of ['', '?musica=', '?musica=alto', '?otra=1']) {
+        const volume = at(query);
+
+        assert.ok(volume >= 0.04 && volume <= 0.12, `${query} → ${volume}`);
     }
 });
 

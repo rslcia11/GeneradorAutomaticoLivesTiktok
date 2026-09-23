@@ -9,11 +9,49 @@
  * Los navegadores bloquean audio hasta el primer gesto del usuario.
  * En OBS el audio arranca solo. Llama unlock() en pointerdown/keydown.
  */
+/*
+ * Volumen de la música, en la escala del navegador (0 a 1, amplitud).
+ *
+ * 0.07 es música de fondo de verdad: se oye bajo la voz sin taparla. Ojo,
+ * la escala NO es lineal al oído: 0.015 (lo que quedó tras dos ajustes a
+ * ojo) son unos 36 dB por debajo del máximo, o sea inaudible con alguien
+ * hablando encima. Para afinarlo en pleno LIVE está `?musica=` (ver
+ * `musicVolumeFrom`), así no hace falta desplegar para mover un número.
+ */
+const DEFAULT_MUSIC_VOLUME = 0.07;
+
+/**
+ * Lee `?musica=` de la URL del overlay, en POR CIENTO (0 a 100), que es
+ * más fácil de escribir a mano que 0.07. Sin parámetro o con basura, el
+ * valor de siempre.
+ *
+ * Ojo al copiar: `?musica=7` es 7 %; `?musica=0.07` es 0,07 % y no se oye.
+ *
+ * @param {URLSearchParams} params
+ * @returns {number} 0..1
+ */
+export function musicVolumeFrom(params) {
+
+    const raw = params?.get?.('musica');
+
+    if (raw === null || raw === undefined || raw.trim() === '') {
+        return DEFAULT_MUSIC_VOLUME;
+    }
+
+    const percent = Number(raw);
+
+    if (!Number.isFinite(percent)) {
+        return DEFAULT_MUSIC_VOLUME;
+    }
+
+    return Math.max(0, Math.min(100, percent)) / 100;
+}
+
 export class AmbientAudio {
 
     constructor({
         musicSrc = './assets/audio/ambient.mp3',
-        musicVolume = 0.015,
+        musicVolume = DEFAULT_MUSIC_VOLUME,
         effectsVolume = 0.35
     } = {}) {
 

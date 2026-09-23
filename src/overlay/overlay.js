@@ -6,7 +6,7 @@ import { formatNumber } from './format.js';
 import { startDebugTools } from './debugTools.js';
 import { fitStage } from './stage.js';
 import { socketUrl } from './socketUrl.js';
-import { AmbientAudio } from './AmbientAudio.js';
+import { AmbientAudio, musicVolumeFrom } from './AmbientAudio.js';
 
 /* Primero el escenario: todo lo demás se mide dentro de él. */
 fitStage();
@@ -97,10 +97,23 @@ const avatar = new TarotAvatar({
 const speech = new SpeechPlayer();
 
 /*
+ * ?avatar=animado  → renderer WebGL (PixiJS)
+ * ?debug=1         → métricas de rendimiento + teclas de prueba
+ * ?debug=anchors   → además dibuja las zonas del rig
+ * ?fps=30          → limita los FPS del avatar animado
+ * ?musica=7        → volumen de la música en % (0 = sin música)
+ * ?preview=estado  → ver debugTools.js
+ */
+const overlayParams =
+    new URLSearchParams(window.location.search);
+
+/*
  * Música ambiental + efectos de sonido.
  * Coloca tu archivo en: src/overlay/assets/audio/ambient.mp3
  */
-const ambient = new AmbientAudio();
+const ambient = new AmbientAudio({
+    musicVolume: musicVolumeFrom(overlayParams)
+});
 
 /* Menú de servicios, últimos en apoyar y franja de contacto. */
 const hud = new Hud({ elements });
@@ -148,16 +161,6 @@ const presenter = new InteractionPresenter({
         }
     })
 });
-
-/*
- * ?avatar=animado  → renderer WebGL (PixiJS)
- * ?debug=1         → métricas de rendimiento + teclas de prueba
- * ?debug=anchors   → además dibuja las zonas del rig
- * ?fps=30          → limita los FPS del avatar animado
- * ?preview=estado  → ver debugTools.js
- */
-const overlayParams =
-    new URLSearchParams(window.location.search);
 
 let animatedAvatar = null;
 

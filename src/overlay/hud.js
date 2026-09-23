@@ -177,7 +177,14 @@ export class Hud {
         );
 
         this.#startDayTimer();
-        this.#cycleMenu();
+
+        if (this.menuTimer !== null) {
+            this.clearTimer(this.menuTimer);
+            this.menuTimer = null;
+        }
+
+        serviceMenu.hidden = false;
+        this.setTimer(() => serviceMenu.classList.add('service-menu--visible'), 0);
     }
 
     showDonors(donors) {

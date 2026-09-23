@@ -210,16 +210,21 @@ await test('?musica= ajusta el volumen en %, con un fondo audible por defecto', 
     assert.equal(at('?musica=0'), 0, 'sin música');
     assert.equal(at('?musica=25'), 0.25);
     assert.equal(at('?musica=100'), 1);
+    assert.equal(at('?musica=3.5'), 0.035, 'admite decimales');
 
     /* Fuera de rango, se recorta. */
     assert.equal(at('?musica=500'), 1);
     assert.equal(at('?musica=-10'), 0);
 
-    /* Sin parámetro o con basura, un fondo suave pero audible. */
+    /*
+     * Sin parámetro o con basura, un fondo suave pero audible. El piso está
+     * porque con 1,5 % la música desapareció del LIVE y nadie lo notó hasta
+     * verlo en vivo.
+     */
     for (const query of ['', '?musica=', '?musica=alto', '?otra=1']) {
         const volume = at(query);
 
-        assert.ok(volume >= 0.04 && volume <= 0.12, `${query} → ${volume}`);
+        assert.ok(volume >= 0.03 && volume <= 0.12, `${query} → ${volume}`);
     }
 });
 

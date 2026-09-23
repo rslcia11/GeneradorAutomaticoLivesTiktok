@@ -143,7 +143,7 @@ Para entregárselo a un tarotista **sin que abra una terminal**, se aloja en un 
 |---|---|
 | `?avatar=animado` | Avatar animado con WebGL (recomendado). Sin él se ve el avatar estático |
 | `&fps=30` | Limita los FPS, para PCs modestas |
-| `&musica=7` | Volumen de la música de fondo, **en por ciento** (0 la apaga). Por defecto 7 % |
+| `&musica=3.5` | Volumen de la música de fondo, **en por ciento** (0 la apaga). Por defecto 3,5 % |
 | `&debug=1` | Métricas (FPS, ms/frame, estado, pose) y teclas de prueba |
 | `&debug=anchors` | Además dibuja las zonas del rig de animación |
 | `&preview=tarot` | Ejecuta una acción al cargar: `idle`, `listening`, `thinking`, `speaking`, `tarot`, `thanks`, `invite`, `reacting`, `gift` |

@@ -12,18 +12,18 @@
 /*
  * Volumen de la música, en la escala del navegador (0 a 1, amplitud).
  *
- * 0.07 es música de fondo de verdad: se oye bajo la voz sin taparla. Ojo,
- * la escala NO es lineal al oído: 0.015 (lo que quedó tras dos ajustes a
- * ojo) son unos 36 dB por debajo del máximo, o sea inaudible con alguien
- * hablando encima. Para afinarlo en pleno LIVE está `?musica=` (ver
- * `musicVolumeFrom`), así no hace falta desplegar para mover un número.
+ * 3,5 % es lo que pidió el dueño tras oírlo en el LIVE: presente pero muy
+ * por debajo de la voz. Ojo, la escala NO es lineal al oído: se probó 1,5 %
+ * y la música desaparecía del todo con alguien hablando encima. Para
+ * afinarlo en pleno LIVE está `?musica=` (ver `musicVolumeFrom`), así no
+ * hace falta desplegar para mover un número.
  */
-const DEFAULT_MUSIC_VOLUME = 0.07;
+const DEFAULT_MUSIC_VOLUME = 0.035;
 
 /**
  * Lee `?musica=` de la URL del overlay, en POR CIENTO (0 a 100), que es
- * más fácil de escribir a mano que 0.07. Sin parámetro o con basura, el
- * valor de siempre.
+ * más fácil de escribir a mano que 0.035. Admite decimales. Sin parámetro
+ * o con basura, el valor de siempre.
  *
  * Ojo al copiar: `?musica=7` es 7 %; `?musica=0.07` es 0,07 % y no se oye.
  *

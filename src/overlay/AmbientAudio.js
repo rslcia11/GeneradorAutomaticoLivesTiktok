@@ -13,7 +13,7 @@ export class AmbientAudio {
 
     constructor({
         musicSrc = './assets/audio/ambient.mp3',
-        musicVolume = 0.22,
+        musicVolume = 0.08,
         effectsVolume = 0.35
     } = {}) {
 

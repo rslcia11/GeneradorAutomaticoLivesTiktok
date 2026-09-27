@@ -68,10 +68,14 @@ export class ActivityDirector {
      * @param {object} options
      * @param {(context: object) => string|{ text: string, intent?: string }} options.line
      *   qué dice el mago; puede traer la intención (invite_share, tarot_reading...)
-     * @param {number} [options.memory]  cuántas frases no se repiten seguidas
-     *   (en una sala callada son ~15 min de charla sin repetirse)
+     * @param {number} [options.memory]  cuántas frases no se repiten seguidas.
+     *   Con el ritmo de sala callada (20 s) son ~8 min sin oír lo mismo. Sube
+     *   junto con `IDLE_EVERY_MS`: cuanto más habla el mago, más lejos hay que
+     *   poner la repetición, que es lo que delata a una transmisión automática.
+     *   Puede superar el tamaño del catálogo más corto; `fresh()` en
+     *   `idleLines.js` lo maneja reciclando la frase más vieja.
      */
-    constructor({ line, memory = 12 } = {}) {
+    constructor({ line, memory = 24 } = {}) {
         this.line = line;
         this.memory = memory;
     }

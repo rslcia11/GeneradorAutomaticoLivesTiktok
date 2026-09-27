@@ -100,7 +100,11 @@ const textOf = element =>
 
 
 // 1. Menú de servicios
-test('Pinta el menú con nombre y precio de cada servicio', () => {
+/*
+ * El número del menú NO es el precio: es cuánto se ha donado en esta sesión,
+ * empezando en 0 cada LIVE y topando en lo que vale cada lectura.
+ */
+test('Pinta el menú con el nombre y el contador de la sesión en 0', () => {
     const { hud, elements } = createHud();
 
     hud.handle({
@@ -117,8 +121,51 @@ test('Pinta el menú con nombre y precio de cada servicio', () => {
     const first = textOf(elements.serviceMenuList.children[0]);
 
     assert.match(first, /Oráculo del Día/);
-    assert.match(first, /29/);
-    assert.match(textOf(elements.serviceMenuList.children[1]), /200/);
+    assert.match(first, /\b0\b/, 'arranca en cero, no en el precio');
+    assert.doesNotMatch(first, /29/);
+});
+
+test('Cada donación de la sesión sube el contador, y cada uno topa en su valor', () => {
+    const { hud, elements } = createHud();
+
+    const menu = () => elements.serviceMenuList.children.map(item => textOf(item));
+
+    hud.handle({
+        type: 'service_menu',
+        services: [
+            { id: 'oraculo_dia', label: 'Oráculo del Día', coins: 29, style: 'short' },
+            { id: 'lectura_3', label: 'Lectura 3 Cartas', coins: 200, style: 'reading' }
+        ]
+    });
+
+    /* Dos regalos de esta sesión: 20 + 30 = 50 monedas. */
+    hud.handle({
+        type: 'donor_board',
+        donors: [
+            { nickname: 'Mayra', gift: 'Rosa', coins: 30, at: Date.now() + 2000 },
+            { nickname: 'Beto', gift: 'Rosa', coins: 20, at: Date.now() + 1000 }
+        ]
+    });
+
+    const [oraculo, lectura] = menu();
+
+    assert.match(oraculo, /\b29\b/, 'se pasó de 29: topa en lo que vale');
+    assert.match(lectura, /\b50\b/, 'aún le falta para 200');
+
+    /* Lo donado antes de abrir el overlay no cuenta: el contador es de la sesión. */
+    const fresco = createHud();
+
+    fresco.hud.handle({
+        type: 'service_menu',
+        services: [{ id: 'lectura_3', label: 'Lectura 3 Cartas', coins: 200, style: 'reading' }]
+    });
+
+    fresco.hud.handle({
+        type: 'donor_board',
+        donors: [{ nickname: 'Vieja', gift: 'Rosa', coins: 99, at: Date.now() - 60_000 }]
+    });
+
+    assert.match(textOf(fresco.elements.serviceMenuList.children[0]), /\b0\b/);
 });
 
 test('El menú muestra cuánto falta para la próxima pregunta gratis', () => {
@@ -200,7 +247,7 @@ test('Sin donantes, la tabla se oculta: vacía sería pedir apoyo', () => {
     assert.match(textOf(elements.donorBoardList), /Mayra/);
 });
 
-test('El menú muestra el regalo ORIGINAL de TikTok y su precio real', () => {
+test('El menú muestra el regalo ORIGINAL de TikTok, y el tope es su precio real', () => {
     const { hud, elements } = createHud();
 
     hud.handle({
@@ -222,7 +269,15 @@ test('El menú muestra el regalo ORIGINAL de TikTok y su precio real', () => {
     assert.equal(image.alt, 'Doughnut', 'el nombre del regalo va en la imagen');
     assert.equal(image.referrerPolicy, 'no-referrer');
 
-    assert.match(textOf(item), /30/, 'precio del regalo real, no el del servicio');
+    /* El contador arranca en 0 y su tope es el precio del regalo real (30), no el del servicio (29). */
+    assert.match(textOf(item), /\b0\b/);
+
+    hud.handle({
+        type: 'donor_board',
+        donors: [{ nickname: 'Mayra', gift: 'Doughnut', coins: 500, at: Date.now() + 1000 }]
+    });
+
+    assert.match(textOf(item), /\b30\b/, 'topa en el precio del regalo real');
     assert.doesNotMatch(textOf(item), /29/);
 });
 
@@ -238,7 +293,14 @@ test('Sin la lista de la sala, el menú vuelve al ícono y al precio base', () =
 
     assert.ok(!findIn(item, child => child.tagName === 'img'));
     assert.match(textOf(item), /🃏/);
-    assert.match(textOf(item), /200/);
+
+    /* Sin regalo de la sala, el tope del contador es el precio del servicio. */
+    hud.handle({
+        type: 'donor_board',
+        donors: [{ nickname: 'Mayra', gift: 'Rosa', coins: 9999, at: Date.now() + 1000 }]
+    });
+
+    assert.match(textOf(item), /\b200\b/);
 });
 
 test('La tabla muestra la imagen del regalo y marca al primero con corona', () => {

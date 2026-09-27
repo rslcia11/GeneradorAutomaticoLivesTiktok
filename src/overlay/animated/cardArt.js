@@ -441,7 +441,11 @@ function spacedText(ctx, text, x, y, spacing, maxWidth) {
     ctx.textAlign = 'center';
 }
 
-export function createFrontTexture(arcana) {
+/**
+ * @param {object} arcana  — entrada del array ARCANA
+ * @param {HTMLImageElement|null} img — imagen Rider-Waite precargada; null = arte procedural
+ */
+export function createFrontTexture(arcana, img = null) {
 
     return cardTexture((ctx, w, h) => {
 
@@ -450,55 +454,61 @@ export function createFrontTexture(arcana) {
 
         insideCard(ctx, w, h, () => {
 
-            const sky = ctx.createLinearGradient(0, 0, 0, h);
+            if (img && img.complete && img.naturalWidth > 0) {
 
-            sky.addColorStop(0, arcana.sky[0]);
-            sky.addColorStop(1, arcana.sky[1]);
+                /* Imagen Rider-Waite: llenar la silueta de la carta. */
+                ctx.drawImage(img, 0, 0, w, h);
 
-            ctx.fillStyle = sky;
-            ctx.fillRect(0, 0, w, h);
+                /* Degradé oscuro en la parte superior para el medallón del numeral. */
+                const top = ctx.createLinearGradient(0, 0, 0, 52);
+                top.addColorStop(0, rgba(NIGHT, 0.82));
+                top.addColorStop(1, rgba(NIGHT, 0));
+                ctx.fillStyle = top;
+                ctx.fillRect(0, 0, w, 52);
 
-            starField(ctx, w, h, 46, rgba('#ffffff', 0.35));
+            } else {
 
-            /* Halo detrás del símbolo: es lo que hace que "irradie". */
-            const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, w * 0.72);
+                /* Fallback: arte procedural original. */
+                const sky = ctx.createLinearGradient(0, 0, 0, h);
+                sky.addColorStop(0, arcana.sky[0]);
+                sky.addColorStop(1, arcana.sky[1]);
+                ctx.fillStyle = sky;
+                ctx.fillRect(0, 0, w, h);
 
-            halo.addColorStop(0, rgba(arcana.accent, 0.5));
-            halo.addColorStop(0.5, rgba(arcana.accent, 0.12));
-            halo.addColorStop(1, rgba(arcana.accent, 0));
+                starField(ctx, w, h, 46, rgba('#ffffff', 0.35));
 
-            ctx.fillStyle = halo;
-            ctx.fillRect(0, 0, w, h);
+                const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, w * 0.72);
+                halo.addColorStop(0, rgba(arcana.accent, 0.5));
+                halo.addColorStop(0.5, rgba(arcana.accent, 0.12));
+                halo.addColorStop(1, rgba(arcana.accent, 0));
+                ctx.fillStyle = halo;
+                ctx.fillRect(0, 0, w, h);
 
-            /* Mandala: dos anillos punteados concéntricos. */
-            ctx.strokeStyle = rgba(GOLD, 0.45);
+                ctx.strokeStyle = rgba(GOLD, 0.45);
+                for (const [radius, lineW] of [[64, 1], [76, 2]]) {
+                    ctx.lineWidth = lineW;
+                    ctx.setLineDash(radius === 64 ? [3, 7] : [1, 12]);
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                ctx.setLineDash([]);
 
-            for (const [radius, width] of [[64, 1], [76, 2]]) {
-                ctx.lineWidth = width;
-                ctx.setLineDash(radius === 64 ? [3, 7] : [1, 12]);
-                ctx.beginPath();
-                ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-                ctx.stroke();
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.fillStyle = arcana.accent;
+                ctx.strokeStyle = arcana.accent;
+                ctx.shadowColor = arcana.accent;
+                ctx.shadowBlur = 22;
+                SYMBOLS[arcana.symbol](ctx, 44);
+                ctx.restore();
             }
 
-            ctx.setLineDash([]);
-
-            ctx.save();
-            ctx.translate(cx, cy);
-            ctx.fillStyle = arcana.accent;
-            ctx.strokeStyle = arcana.accent;
-            ctx.shadowColor = arcana.accent;
-            ctx.shadowBlur = 22;
-            SYMBOLS[arcana.symbol](ctx, 44);
-            ctx.restore();
-
-            /* Cartela del nombre. */
+            /* Cartela del nombre — igual para imagen real y procedural. */
             const banner = ctx.createLinearGradient(0, h - 74, 0, h);
-
             banner.addColorStop(0, rgba(NIGHT, 0));
             banner.addColorStop(0.45, rgba(NIGHT, 0.85));
             banner.addColorStop(1, rgba(NIGHT, 0.95));
-
             ctx.fillStyle = banner;
             ctx.fillRect(0, h - 74, w, 74);
         });

@@ -105,6 +105,12 @@ export class Hud {
         this.contactTimer = null;
         this.menuTimer = null;
         this.dayTimerInterval = null;
+
+        /* Monedas acumuladas ESTA sesión (empieza en 0 cada LIVE). */
+        this.sessionCoins  = 0;
+        this.sessionStart  = Date.now();
+        this.seenDonors    = new Set();
+        this.servicePrices = [];
     }
 
     /** Evento del backend → panel correspondiente. Devuelve true si lo manejó. */
@@ -141,6 +147,8 @@ export class Hud {
             return;
         }
 
+        this.servicePrices = [];
+
         serviceMenuList.replaceChildren(
             ...services.map((service, index) => {
                 const item = document.createElement('li');
@@ -153,13 +161,13 @@ export class Hud {
                 label.className = 'service-menu__label';
                 label.textContent = service.label;
 
-                /*
-                 * Lo que vale la lectura: quien regala eso, la recibe. No es
-                 * una meta que se va llenando; es una lista de recompensas.
-                 */
                 const price = document.createElement('span');
                 price.className = 'service-menu__price';
-                price.textContent = formatNumber(gift?.coins ?? service.coins, '—');
+
+                /* Empieza en 0; sube con donaciones recibidas esta sesión. */
+                const threshold = gift?.coins ?? service.coins;
+                price.textContent = '0';
+                this.servicePrices.push({ el: price, threshold });
 
                 const media = gift?.image
                     ? giftImage(gift.image, gift.name, 'service-menu__gift', () => iconOf(service))
@@ -176,6 +184,7 @@ export class Hud {
             })
         );
 
+        this.#updatePriceBadges();
         this.#startDayTimer();
         this.#cycleMenu();
     }
@@ -189,6 +198,16 @@ export class Hud {
         }
 
         const list = Array.isArray(donors) ? donors.slice(0, MAX_DONORS) : [];
+
+        /* Acumula monedas de donantes nuevos (posteriores al inicio de la sesión). */
+        for (const donor of list) {
+            const id = donor.at;
+            if (id && id > this.sessionStart && !this.seenDonors.has(id)) {
+                this.seenDonors.add(id);
+                this.sessionCoins += donor.coins ?? 0;
+            }
+        }
+        this.#updatePriceBadges();
 
         /* La tabla aparece solo cuando hay donantes: vacía, sería pedir. */
         if (list.length === 0) {
@@ -384,6 +403,13 @@ export class Hud {
         };
 
         show();
+    }
+
+    /* Actualiza los badges del menú con las monedas acumuladas esta sesión. */
+    #updatePriceBadges() {
+        for (const { el, threshold } of this.servicePrices) {
+            el.textContent = formatNumber(Math.min(this.sessionCoins, threshold));
+        }
     }
 
     /* Cuenta atrás hasta medianoche: cuándo se renueva la pregunta gratis. */

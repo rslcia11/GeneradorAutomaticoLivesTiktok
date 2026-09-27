@@ -186,11 +186,12 @@ export class AnimatedAvatar {
 
         /* Truco mágico periódico. */
         this.trick = {
-            timer:   randomBetween(6, 10),     /* segundos hasta el próximo truco */
+            timer:   randomBetween(3, 6),
             phase:   null,
             phaseT:  0,
-            current: null,                    /* MAGIC_TRICKS entry */
-            wand:    { dx: 0, dy: 0 },        /* sobreescritura de la mano derecha */
+            current: null,
+            wand:    { dx: 0, dy: 0 },
+            lean:    { lx: 0, ly: 0, rx: 0, ry: 0 }, /* inclinación suave hacia la bola */
             burstDone: false
         };
 
@@ -204,7 +205,8 @@ export class AnimatedAvatar {
         };
 
         /* Timer para reiniciar las cartas de la mesa periódicamente. */
-        this.timers.tableRestart = randomBetween(120, 180);
+        this.timers.tableRestart = randomBetween(20, 28);
+        this.timers.tableHidden  = 0;
         this.tableCardsRestarting = false;
 
         this.rigValues = Object.fromEntries(
@@ -589,6 +591,19 @@ export class AnimatedAvatar {
             this.#glowSprite(glow, eye, 46, COLORS.violet)
         );
 
+        /* Glows en las manos: pulsan y orbitan para mostrar que el mago está vivo. */
+        this.handGlows = ANCHORS.hands.map((hand, i) => {
+            const sprite = new Sprite(glow);
+            sprite.anchor.set(0.5);
+            sprite.blendMode = 'add';
+            sprite.tint = i === 0 ? COLORS.violet : COLORS.cyan;
+            sprite.width  = 90;
+            sprite.height = 90;
+            sprite.position.set(hand.x, hand.y);
+            sprite.baseScale = sprite.scale.x;
+            return sprite;
+        });
+
         this.rings  = new RingPool({ texture: ring });
         this.sparks = new SparkPool({ texture: spark });
         this.smoke  = new SmokePool({ texture: glow });
@@ -648,6 +663,7 @@ export class AnimatedAvatar {
             this.swirl,
             this.ballCore,
             ...this.eyeGlows,
+            ...this.handGlows,
             this.rings.container,
             this.glints.container,
             /* Cartas de mesa (detrás del scrim de lectura). */
@@ -828,11 +844,13 @@ export class AnimatedAvatar {
         /* Manos: flotación suave sobre la bola + sube al celebrar. */
         const lift = cheer * 16;
 
-        r.handLeft.dx = (Math.sin(t * 0.41) * 3 + Math.sin(t * 1.3) * 1.2) * v.hands;
-        r.handLeft.dy = (Math.cos(t * 0.29) * 2.5 + Math.cos(t * 1.7) * 1) * v.hands - lift;
-
-        r.handRight.dx = (Math.sin(t * 0.35 + 2.1) * 3 + Math.sin(t * 1.15 + 1.1) * 1.2) * v.hands + this.trick.wand.dx;
-        r.handRight.dy = (Math.cos(t * 0.27 + 1.5) * 2.5 + Math.cos(t * 1.55 + 1.2) * 1) * v.hands - lift + this.trick.wand.dy;
+        /* Manos: cap en 1.2 para no deformar en estados de alta energía. */
+        const tl = this.trick.lean;
+        const hv = Math.min(v.hands, 1.2);
+        r.handLeft.dx  = (Math.sin(t * 0.41) * 12 + Math.sin(t * 1.3) * 4) * hv + tl.lx;
+        r.handLeft.dy  = (Math.cos(t * 0.29) * 9  + Math.cos(t * 1.7) * 3) * hv - lift + tl.ly;
+        r.handRight.dx = (Math.sin(t * 0.35 + 2.1) * 12 + Math.sin(t * 1.15 + 1.1) * 4) * hv + tl.rx;
+        r.handRight.dy = (Math.cos(t * 0.27 + 1.5) * 9  + Math.cos(t * 1.55 + 1.2) * 3) * hv - lift + tl.ry;
 
         this.#updateCatLook(dt);
         r.catHead.angle = this.catLook.angle + Math.sin(t * 0.37) * 0.01 + Math.sin(t * 1.9) * 0.004;
@@ -883,12 +901,17 @@ export class AnimatedAvatar {
 
             if (this.timers.tableRestart <= 0) {
                 this.tableCardsRestarting = true;
+                this.timers.tableHidden = randomBetween(45, 75);
                 this.tableCards.stop();
             }
         } else if (this.tableCards.phase === 'hidden') {
-            this.tableCardsRestarting = false;
-            this.timers.tableRestart = randomBetween(120, 180);
-            this.tableCards.start();
+            this.timers.tableHidden -= dt;
+
+            if (this.timers.tableHidden <= 0) {
+                this.tableCardsRestarting = false;
+                this.timers.tableRestart = randomBetween(20, 28);
+                this.tableCards.start();
+            }
         }
     }
 
@@ -942,6 +965,21 @@ export class AnimatedAvatar {
         for (const eyeGlow of this.eyeGlows) {
             eyeGlow.alpha = v.eyeGlow * (0.6 + 0.4 * Math.sin(t * 4));
         }
+
+        /* Glows de las manos: pulsan y orbitan suavemente. */
+        const trickActive = this.trick.phase !== null;
+        const trickBoost  = trickActive ? 0.5 : 0;
+        ANCHORS.hands.forEach((hand, i) => {
+            const hg    = this.handGlows[i];
+            const phase = i === 0 ? 0 : Math.PI;
+            const orbit = 14;
+            hg.x = hand.x + Math.sin(t * 0.9 + phase) * orbit;
+            hg.y = hand.y + Math.cos(t * 0.7 + phase) * (orbit * 0.5);
+            const pulse = 0.35 + 0.2 * Math.sin(t * 1.8 + phase);
+            hg.alpha = Math.min(1, (pulse + trickBoost + talk * 0.3 + cheer * 0.4) * v.glow);
+            const sz = hg.baseScale * (1 + 0.15 * Math.sin(t * 2.3 + phase) + trickBoost * 0.4);
+            hg.scale.set(sz);
+        });
 
         /* Chispas que suben desde la bola. */
         this.timers.spark += dt * (v.sparks + talk * 8);
@@ -1113,71 +1151,100 @@ export class AnimatedAvatar {
 
         tr.phaseT += dt;
 
-        const dur = TRICK_PHASES[tr.phase];
-        const p   = Math.min(1, tr.phaseT / dur);
-        const ease = t => 1 - (1 - t) ** 3;
+        const dur  = TRICK_PHASES[tr.phase];
+        const p    = Math.min(1, tr.phaseT / dur);
+        const ease = x => 1 - (1 - x) ** 3;
+
+        /* Lean: manos se acercan suavemente a la bola durante el truco.
+         * Dirección normalizada × máx 10 px para no deformar el mesh.
+         * handLeft(365,755)→ball(515,855): (8.3, 5.5)
+         * handRight(705,805)→ball(515,855): (-9.7, 2.6) */
+        const LEAN_MAX = 10;
+        const LEAN_L = { x: 8.3, y: 5.5 };
+        const LEAN_R = { x: -9.7, y: 2.6 };
+
+        const { ball } = ANCHORS;
 
         switch (tr.phase) {
 
-            case 'raise':
-                /* Mano sube suavemente. */
-                tr.wand.dy = -ease(p) * 90;
-                tr.wand.dx =  ease(p) * 18;
+            case 'raise': {
+                const t = ease(p);
+                tr.lean.lx = LEAN_L.x * t;
+                tr.lean.ly = LEAN_L.y * t;
+                tr.lean.rx = LEAN_R.x * t;
+                tr.lean.ry = LEAN_R.y * t;
+                tr.wand.dy = -t * LEAN_MAX;  /* solo para posicionar chispas */
+                tr.wand.dx = 0;
                 break;
+            }
 
-            case 'wave':
-                /* Arco de barita: dx oscila, dy se mantiene arriba. */
-                tr.wand.dy = -90 + Math.sin(p * Math.PI) * -35;
-                tr.wand.dx =  18 + Math.sin(p * Math.PI * 3) * 30;
+            case 'wave': {
+                tr.lean.lx = LEAN_L.x;
+                tr.lean.ly = LEAN_L.y;
+                tr.lean.rx = LEAN_R.x;
+                tr.lean.ry = LEAN_R.y;
+                tr.wand.dy = -LEAN_MAX;
+                tr.wand.dx = 0;
 
-                /* Chispas durante el arco. */
+                /* Chispas salen de la bola de cristal. */
                 if (Math.random() < dt * 14) {
-                    const { hands } = ANCHORS;
+                    const angle = Math.random() * Math.PI * 2;
+                    const r = ball.radius * 0.5 * Math.random();
                     this.#burstSparks(
-                        hands[1].x + tr.wand.dx,
-                        hands[1].y + tr.wand.dy,
-                        { count: 3, speed: [60, 180], lift: 30,
+                        ball.x + Math.cos(angle) * r,
+                        ball.y + Math.sin(angle) * r,
+                        { count: 3, speed: [60, 180], lift: 40,
                           life: [0.4, 0.9], scale: [0.18, 0.38],
                           tints: tr.current.tints, drag: 2.5, spin: 4 }
                     );
                 }
                 break;
+            }
 
             case 'burst':
                 if (!tr.burstDone) {
                     tr.burstDone = true;
-                    const { hands } = ANCHORS;
-                    const bx = hands[1].x + tr.wand.dx;
-                    const by = hands[1].y + tr.wand.dy - 20;
 
-                    this.#burstSparks(bx, by, {
+                    /* Gran explosión desde el centro de la bola. */
+                    this.#burstSparks(ball.x, ball.y, {
                         count: 55, speed: [140, 400], lift: 70,
                         life: [0.8, 1.6], scale: [0.28, 0.65],
                         tints: tr.current.tints, drag: 2.2, spin: 5
                     });
 
-                    this.rings.emit({ x: bx, y: by,
-                        from: 0.2, to: 2.8, life: 1.0, alpha: 0.9,
+                    this.rings.emit({ x: ball.x, y: ball.y,
+                        from: (ball.radius / RING_TEXTURE_RADIUS) * 0.9,
+                        to:   (ball.radius / RING_TEXTURE_RADIUS) * 4.5,
+                        life: 1.0, alpha: 0.9,
                         tint: tr.current.tint });
 
-                    this.rings.emit({ x: bx, y: by,
-                        from: 0.1, to: 1.6, life: 0.6, alpha: 0.7,
+                    this.rings.emit({ x: ball.x, y: ball.y,
+                        from: (ball.radius / RING_TEXTURE_RADIUS) * 0.5,
+                        to:   (ball.radius / RING_TEXTURE_RADIUS) * 2.8,
+                        life: 0.6, alpha: 0.7,
                         tint: 0xffffff });
 
                     this.#showTrickEmoji(tr.current);
                 }
                 break;
 
-            case 'reveal':
-                /* Mano baja gradualmente. */
-                tr.wand.dy = -90 * (1 - ease(p * 0.6));
-                tr.wand.dx =  18 * (1 - ease(p * 0.6));
+            case 'reveal': {
+                const t = 1 - ease(p * 0.7);
+                tr.lean.lx = LEAN_L.x * t;
+                tr.lean.ly = LEAN_L.y * t;
+                tr.lean.rx = LEAN_R.x * t;
+                tr.lean.ry = LEAN_R.y * t;
+                tr.wand.dy = -LEAN_MAX * t;
+                tr.wand.dx = 0;
                 break;
+            }
 
             case 'return':
-                /* Suavizado final a cero. */
-                tr.wand.dy = tr.wand.dy * (1 - dt * 6);
-                tr.wand.dx = tr.wand.dx * (1 - dt * 6);
+                tr.lean.lx *= 1 - dt * 6;
+                tr.lean.ly *= 1 - dt * 6;
+                tr.lean.rx *= 1 - dt * 6;
+                tr.lean.ry *= 1 - dt * 6;
+                tr.wand.dy  *= 1 - dt * 6;
                 break;
         }
 
@@ -1191,7 +1258,8 @@ export class AnimatedAvatar {
 
             if (!next) {
                 tr.wand  = { dx: 0, dy: 0 };
-                tr.timer = randomBetween(18, 30);
+                tr.lean  = { lx: 0, ly: 0, rx: 0, ry: 0 };
+                tr.timer = randomBetween(8, 15);
             }
         }
     }

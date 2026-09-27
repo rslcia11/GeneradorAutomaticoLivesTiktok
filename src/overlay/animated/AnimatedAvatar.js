@@ -56,7 +56,7 @@ const CELEBRATION_TINTS = Object.freeze({
  * acercan suavemente a estos objetivos: nunca hay saltos.
  */
 const STATE_PROFILES = Object.freeze({
-    idle: { glow: 0.35, swirl: 0.3, sparks: 1.5, aura: 0.25, ringEvery: 0, hands: 1, headSway: 1, eyeGlow: 0, lean: 0 },
+    idle: { glow: 0.6, swirl: 0.5, sparks: 4, aura: 0.5, ringEvery: 5, hands: 0.7, headSway: 0.55, eyeGlow: 0.06, lean: 0 },
     listening: { glow: 0.55, swirl: 0.8, sparks: 4, aura: 0.4, ringEvery: 1.8, hands: 1.3, headSway: 0.8, eyeGlow: 0.15, lean: 0.014 },
     thinking: { glow: 0.95, swirl: 2.6, sparks: 12, aura: 0.6, ringEvery: 0.85, hands: 2.8, headSway: 0.5, eyeGlow: 0.9, lean: -0.012 },
     speaking: { glow: 0.65, swirl: 1.2, sparks: 5, aura: 0.5, ringEvery: 0, hands: 1.8, headSway: 1.4, eyeGlow: 0.1, lean: 0 },
@@ -204,7 +204,7 @@ export class AnimatedAvatar {
         };
 
         /* Timer para reiniciar las cartas de la mesa periódicamente. */
-        this.timers.tableRestart = randomBetween(55, 85);
+        this.timers.tableRestart = randomBetween(120, 180);
         this.tableCardsRestarting = false;
 
         this.rigValues = Object.fromEntries(
@@ -222,9 +222,28 @@ export class AnimatedAvatar {
 
         this.handleStateChange = event => {
             if (STATE_PROFILES[event.detail?.state]) {
+                const prev = this.state;
                 this.state = event.detail.state;
                 this.intent = event.detail.intent ?? null;
                 this.#showPose(selectPose(event.detail));
+
+                /* Al recibir una pregunta: pulso visual en la bola. */
+                if (prev === 'idle' && this.state === 'listening' && this.rings) {
+                    const { ball } = ANCHORS;
+                    for (const delay of [0, 0.5, 1.1]) {
+                        setTimeout(() => {
+                            if (!this.rings) return;
+                            this.rings.emit({
+                                x: ball.x, y: ball.y,
+                                from: (ball.radius / RING_TEXTURE_RADIUS) * 0.8,
+                                to:   (ball.radius / RING_TEXTURE_RADIUS) * 5,
+                                life: 1.2,
+                                alpha: 0.9,
+                                tint: delay === 0 ? COLORS.cyan : COLORS.violet
+                            });
+                        }, delay * 1000);
+                    }
+                }
             }
         };
 
@@ -443,9 +462,12 @@ export class AnimatedAvatar {
             )
         );
 
-        const texture = await Assets.load(imageUrl);
+        const [texture, cardImages] = await Promise.all([
+            Assets.load(imageUrl),
+            FloatingCards.preload('assets/tarot/')
+        ]);
 
-        this.#buildScene(texture);
+        this.#buildScene(texture, cardImages);
 
         for (const loading of posesLoading) {
             loading.then(pose => {
@@ -468,7 +490,7 @@ export class AnimatedAvatar {
         this.root.dataset.animatedAvatar = 'ready';
     }
 
-    #buildScene(characterTexture) {
+    #buildScene(characterTexture, cardImages) {
 
         const glow = createGlowTexture();
         const spark = createSparkTexture();
@@ -572,8 +594,6 @@ export class AnimatedAvatar {
         this.smoke  = new SmokePool({ texture: glow });
         this.glints = new CardGlints({ texture: spark, positions: ANCHORS.cards });
 
-        const cardImages = await FloatingCards.preload('assets/tarot/');
-
         this.readingCards = new FloatingCards({
             glowTexture: glow,
             origin: ball,
@@ -592,6 +612,8 @@ export class AnimatedAvatar {
             onSparkle: (x, y, count) => this.#emitCardSparks(x, y, count),
             onReveal: () => {}
         });
+
+        this.tableCards.start();
 
         /* Esfera armilar: 3 anillos 3D giratorios en coordenadas del mundo.
          * Posición estimada (200, 384) = escena (110, 250) con scale=0.5505.
@@ -781,10 +803,10 @@ export class AnimatedAvatar {
         /* Rebote breve al cambiar de pose. */
         const kick = riseAndFall(this.poseKick);
 
-        r.breath.sy = 1 + Math.sin(t * 1.37) * 0.0055 + cheer * 0.004 + kick * 0.012;
+        r.breath.sy = 1 + Math.sin(t * 1.37) * 0.011 + cheer * 0.006 + kick * 0.015;
 
         r.head.angle =
-            (Math.sin(t * 0.63) * 0.007 + Math.sin(t * 1.71) * 0.0025) * v.headSway +
+            (Math.sin(t * 0.63) * 0.013 + Math.sin(t * 1.71) * 0.005) * v.headSway +
             v.lean +
             talk * 0.012 * Math.sin(t * 5.3) -
             kick * 0.012 -
@@ -803,14 +825,14 @@ export class AnimatedAvatar {
         r.blinkLeft.amount = blink;
         r.blinkRight.amount = blink;
 
-        /* Manos: flotan sobre la bola y suben al celebrar. */
+        /* Manos: flotación suave sobre la bola + sube al celebrar. */
         const lift = cheer * 16;
 
-        r.handLeft.dx = Math.sin(t * 1.3) * 2.5 * v.hands;
-        r.handLeft.dy = Math.cos(t * 1.7) * 2.5 * v.hands - lift;
+        r.handLeft.dx = (Math.sin(t * 0.41) * 3 + Math.sin(t * 1.3) * 1.2) * v.hands;
+        r.handLeft.dy = (Math.cos(t * 0.29) * 2.5 + Math.cos(t * 1.7) * 1) * v.hands - lift;
 
-        r.handRight.dx = Math.sin(t * 1.3 + 2.1) * 2.5 * v.hands + this.trick.wand.dx;
-        r.handRight.dy = Math.cos(t * 1.55 + 1.2) * 2.5 * v.hands - lift + this.trick.wand.dy;
+        r.handRight.dx = (Math.sin(t * 0.35 + 2.1) * 3 + Math.sin(t * 1.15 + 1.1) * 1.2) * v.hands + this.trick.wand.dx;
+        r.handRight.dy = (Math.cos(t * 0.27 + 1.5) * 2.5 + Math.cos(t * 1.55 + 1.2) * 1) * v.hands - lift + this.trick.wand.dy;
 
         this.#updateCatLook(dt);
         r.catHead.angle = this.catLook.angle + Math.sin(t * 0.37) * 0.01 + Math.sin(t * 1.9) * 0.004;
@@ -852,7 +874,23 @@ export class AnimatedAvatar {
         }
     }
 
-    #updateTableCards(_dt) {}
+    #updateTableCards(dt) {
+
+        this.tableCards.update(dt);
+
+        if (!this.tableCardsRestarting) {
+            this.timers.tableRestart -= dt;
+
+            if (this.timers.tableRestart <= 0) {
+                this.tableCardsRestarting = true;
+                this.tableCards.stop();
+            }
+        } else if (this.tableCards.phase === 'hidden') {
+            this.tableCardsRestarting = false;
+            this.timers.tableRestart = randomBetween(120, 180);
+            this.tableCards.start();
+        }
+    }
 
     #updateEffects(dt, target, talk, cheer) {
 
@@ -860,20 +898,21 @@ export class AnimatedAvatar {
         const v = this.values;
         const { ball } = ANCHORS;
 
-        this.aura.alpha = v.aura * (0.85 + 0.15 * Math.sin(t * 1.2)) + cheer * 0.3;
+        this.aura.alpha = v.aura * (0.7 + 0.3 * Math.sin(t * 0.9)) + cheer * 0.3;
 
+        const ballPulse = 0.75 + 0.25 * Math.sin(t * 2.1);
         this.ballGlow.alpha = Math.min(
             1,
-            v.glow * (0.85 + 0.15 * Math.sin(t * 3.1)) + talk * 0.25 + cheer * 0.6
+            v.glow * ballPulse + talk * 0.25 + cheer * 0.6
         );
 
         this.ballGlow.scale.set(
-            this.ballGlow.baseScale * (1 + talk * 0.08 + cheer * 0.25)
+            this.ballGlow.baseScale * (1 + 0.12 * Math.sin(t * 1.8) + talk * 0.08 + cheer * 0.25)
         );
 
         this.swirlArms[0].rotation += dt * v.swirl;
         this.swirlArms[1].rotation -= dt * v.swirl * 0.7;
-        this.swirl.alpha = Math.min(1, 0.25 + v.glow * 0.55 + cheer * 0.3);
+        this.swirl.alpha = Math.min(1, 0.3 + v.glow * 0.6 + cheer * 0.3);
 
         /* Orbes orbitales dentro de la bola.
          * Perspectiva simple: eje X plano, eje Y aplastado (×0.45).

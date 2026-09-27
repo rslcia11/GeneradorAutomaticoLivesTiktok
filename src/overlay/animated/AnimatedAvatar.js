@@ -901,7 +901,7 @@ export class AnimatedAvatar {
 
             if (this.timers.tableRestart <= 0) {
                 this.tableCardsRestarting = true;
-                this.timers.tableHidden = randomBetween(45, 75);
+                this.timers.tableHidden = randomBetween(20, 30);
                 this.tableCards.stop();
             }
         } else if (this.tableCards.phase === 'hidden') {

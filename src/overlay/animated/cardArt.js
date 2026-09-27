@@ -236,26 +236,100 @@ const SYMBOLS = Object.freeze({
         ctx.moveTo(-r * 0.85, 0);
         ctx.lineTo(r * 0.85, 0);
         ctx.stroke();
+    },
+
+    cross(ctx, r) {
+        ctx.fillRect(-r * 0.12, -r, r * 0.24, r * 2);
+        ctx.fillRect(-r * 0.55, -r * 0.3, r * 1.1, r * 0.24);
+    },
+
+    scythe(ctx, r) {
+        ctx.fillRect(-r * 0.08, -r * 0.95, r * 0.16, r * 1.6);
+        ctx.lineWidth = r * 0.16;
+        ctx.beginPath();
+        ctx.arc(r * 0.22, -r * 0.6, r * 0.52, Math.PI, Math.PI * 1.65);
+        ctx.stroke();
+    },
+
+    trident(ctx, r) {
+        ctx.fillRect(-r * 0.1, -r * 0.4, r * 0.2, r * 1.4);
+        for (const x of [-r * 0.55, 0, r * 0.55]) {
+            ctx.fillRect(x - r * 0.08, -r * 0.95, r * 0.16, r * 0.65);
+        }
+        ctx.fillRect(-r * 0.55, -r * 0.38, r * 1.1, r * 0.16);
+    },
+
+    lightningTower(ctx, r) {
+        ctx.fillRect(-r * 0.32, -r * 0.2, r * 0.64, r * 1.2);
+        ctx.fillRect(-r * 0.44, -r * 0.44, r * 0.88, r * 0.3);
+        ctx.lineWidth = r * 0.18;
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.6, -r * 0.7);
+        ctx.lineTo(r * 0.05, r * 0.1);
+        ctx.lineTo(r * 0.55, -r * 0.95);
+        ctx.stroke();
+    },
+
+    trumpet(ctx, r) {
+        ctx.lineWidth = r * 0.14;
+        ctx.beginPath();
+        ctx.moveTo(-r * 0.7, -r * 0.15);
+        ctx.quadraticCurveTo(0, -r * 0.15, r * 0.3, -r * 0.55);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.ellipse(-r * 0.7, -r * 0.15, r * 0.22, r * 0.34, 0.4, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.lineWidth = r * 0.26;
+        ctx.beginPath();
+        ctx.moveTo(r * 0.3, -r * 0.55);
+        ctx.lineTo(r * 0.8, r * 0.4);
+        ctx.stroke();
+    },
+
+    cups(ctx, r) {
+        ctx.lineWidth = r * 0.12;
+        for (const [dx, dy, flip] of [[-r * 0.38, -r * 0.15, 1], [r * 0.38, r * 0.15, -1]]) {
+            ctx.save();
+            ctx.translate(dx, dy);
+            ctx.scale(1, flip);
+            ctx.beginPath();
+            ctx.moveTo(-r * 0.32, -r * 0.45);
+            ctx.lineTo(-r * 0.42, r * 0.45);
+            ctx.lineTo(r * 0.42, r * 0.45);
+            ctx.lineTo(r * 0.32, -r * 0.45);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.restore();
+        }
+        ctx.fillRect(-r * 0.06, -r * 0.5, r * 0.12, r * 1.0);
     }
 });
 
 /* ─── Los arcanos ──────────────────────────────────────────────────────── */
 
 export const ARCANA = Object.freeze([
-    { numeral: 'O', name: 'El Loco', symbol: 'spark', sky: ['#35245e', '#120a26'], accent: '#ffe6a8', tint: 0xffe6a8 },
-    { numeral: 'I', name: 'El Mago', symbol: 'wand', sky: ['#3b1c63', '#130a24'], accent: '#d7b3ff', tint: 0xd7b3ff },
-    { numeral: 'II', name: 'La Sacerdotisa', symbol: 'moon', sky: ['#1d2a60', '#0b0c24'], accent: '#bcd8ff', tint: 0xbcd8ff },
-    { numeral: 'III', name: 'La Emperatriz', symbol: 'venus', sky: ['#4a1f4c', '#1a0a22'], accent: '#ffb7dd', tint: 0xffb7dd },
-    { numeral: 'IV', name: 'El Emperador', symbol: 'crown', sky: ['#4d2418', '#1c0c10'], accent: '#ffcf8a', tint: 0xffcf8a },
-    { numeral: 'VI', name: 'Los Enamorados', symbol: 'heart', sky: ['#5a1b3c', '#1d0817'], accent: '#ff9ec4', tint: 0xff9ec4 },
-    { numeral: 'VIII', name: 'La Fuerza', symbol: 'infinity', sky: ['#4a2a12', '#190d0a'], accent: '#ffd07a', tint: 0xffd07a },
-    { numeral: 'IX', name: 'El Ermitaño', symbol: 'lantern', sky: ['#252a4e', '#0c0d1f'], accent: '#ffe9b0', tint: 0xffe9b0 },
-    { numeral: 'X', name: 'La Rueda', symbol: 'wheel', sky: ['#143f52', '#06131f'], accent: '#8fe3ff', tint: 0x8fe3ff },
-    { numeral: 'XI', name: 'La Justicia', symbol: 'scales', sky: ['#2a2352', '#0d0a21'], accent: '#cfd8ff', tint: 0xcfd8ff },
-    { numeral: 'XVII', name: 'La Estrella', symbol: 'star', sky: ['#17395f', '#070f23'], accent: '#a8e6ff', tint: 0xa8e6ff },
-    { numeral: 'XVIII', name: 'La Luna', symbol: 'fullMoon', sky: ['#1b2450', '#080a1e'], accent: '#dfe8ff', tint: 0xdfe8ff },
-    { numeral: 'XIX', name: 'El Sol', symbol: 'sun', sky: ['#5c3208', '#1d0d06'], accent: '#ffd772', tint: 0xffd772 },
-    { numeral: 'XXI', name: 'El Mundo', symbol: 'world', sky: ['#1d4a3b', '#08170f'], accent: '#9ff0c8', tint: 0x9ff0c8 }
+    { numeral: 'O',     name: 'El Loco',           slug: 'fool',             symbol: 'spark',        sky: ['#35245e', '#120a26'], accent: '#ffe6a8', tint: 0xffe6a8 },
+    { numeral: 'I',     name: 'El Mago',            slug: 'magician',         symbol: 'wand',         sky: ['#3b1c63', '#130a24'], accent: '#d7b3ff', tint: 0xd7b3ff },
+    { numeral: 'II',    name: 'La Sacerdotisa',     slug: 'high-priestess',   symbol: 'moon',         sky: ['#1d2a60', '#0b0c24'], accent: '#bcd8ff', tint: 0xbcd8ff },
+    { numeral: 'III',   name: 'La Emperatriz',      slug: 'empress',          symbol: 'venus',        sky: ['#4a1f4c', '#1a0a22'], accent: '#ffb7dd', tint: 0xffb7dd },
+    { numeral: 'IV',    name: 'El Emperador',       slug: 'emperor',          symbol: 'crown',        sky: ['#4d2418', '#1c0c10'], accent: '#ffcf8a', tint: 0xffcf8a },
+    { numeral: 'V',     name: 'El Sumo Sacerdote',  slug: 'hierophant',       symbol: 'cross',        sky: ['#2e1a4a', '#0e0820'], accent: '#e8d4ff', tint: 0xe8d4ff },
+    { numeral: 'VI',    name: 'Los Enamorados',     slug: 'lovers',           symbol: 'heart',        sky: ['#5a1b3c', '#1d0817'], accent: '#ff9ec4', tint: 0xff9ec4 },
+    { numeral: 'VII',   name: 'El Carro',           slug: 'chariot',          symbol: 'star',         sky: ['#1a2d5a', '#080f22'], accent: '#c0d8ff', tint: 0xc0d8ff },
+    { numeral: 'VIII',  name: 'La Fuerza',          slug: 'strength',         symbol: 'infinity',     sky: ['#4a2a12', '#190d0a'], accent: '#ffd07a', tint: 0xffd07a },
+    { numeral: 'IX',    name: 'El Ermitaño',        slug: 'hermit',           symbol: 'lantern',      sky: ['#252a4e', '#0c0d1f'], accent: '#ffe9b0', tint: 0xffe9b0 },
+    { numeral: 'X',     name: 'La Rueda',           slug: 'wheel-of-fortune', symbol: 'wheel',        sky: ['#143f52', '#06131f'], accent: '#8fe3ff', tint: 0x8fe3ff },
+    { numeral: 'XI',    name: 'La Justicia',        slug: 'justice',          symbol: 'scales',       sky: ['#2a2352', '#0d0a21'], accent: '#cfd8ff', tint: 0xcfd8ff },
+    { numeral: 'XII',   name: 'El Colgado',         slug: 'hanged-man',       symbol: 'moon',         sky: ['#1a3a2a', '#081510'], accent: '#a8ffcc', tint: 0xa8ffcc },
+    { numeral: 'XIII',  name: 'La Muerte',          slug: 'death',            symbol: 'scythe',       sky: ['#1a1a2e', '#080810'], accent: '#c8c8e0', tint: 0xc8c8e0 },
+    { numeral: 'XIV',   name: 'La Templanza',       slug: 'temperance',       symbol: 'cups',         sky: ['#143858', '#061422'], accent: '#b0e8ff', tint: 0xb0e8ff },
+    { numeral: 'XV',    name: 'El Diablo',          slug: 'devil',            symbol: 'trident',      sky: ['#3a0a08', '#160404'], accent: '#ff6040', tint: 0xff6040 },
+    { numeral: 'XVI',   name: 'La Torre',           slug: 'tower',            symbol: 'lightningTower', sky: ['#2e1a08', '#120804'], accent: '#ffa060', tint: 0xffa060 },
+    { numeral: 'XVII',  name: 'La Estrella',        slug: 'star',             symbol: 'star',         sky: ['#17395f', '#070f23'], accent: '#a8e6ff', tint: 0xa8e6ff },
+    { numeral: 'XVIII', name: 'La Luna',            slug: 'moon',             symbol: 'fullMoon',     sky: ['#1b2450', '#080a1e'], accent: '#dfe8ff', tint: 0xdfe8ff },
+    { numeral: 'XIX',   name: 'El Sol',             slug: 'sun',              symbol: 'sun',          sky: ['#5c3208', '#1d0d06'], accent: '#ffd772', tint: 0xffd772 },
+    { numeral: 'XX',    name: 'El Juicio',          slug: 'judgement',        symbol: 'trumpet',      sky: ['#4a2a08', '#1a0e04'], accent: '#ffc860', tint: 0xffc860 },
+    { numeral: 'XXI',   name: 'El Mundo',           slug: 'world',            symbol: 'world',        sky: ['#1d4a3b', '#08170f'], accent: '#9ff0c8', tint: 0x9ff0c8 },
 ]);
 
 /* ─── Composición ──────────────────────────────────────────────────────── */

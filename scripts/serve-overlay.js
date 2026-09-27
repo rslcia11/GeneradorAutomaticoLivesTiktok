@@ -1,9 +1,8 @@
 /**
- * Sirve SOLO la página del overlay, sin backend (sin WebSocket).
+ * Sirve la página del overlay + WebSocket mock para desarrollo.
  *
- * Ya no hace falta para usar la app: `npm start` sirve el overlay y el
- * WebSocket juntos. Queda para trabajar la página sin backend, por ejemplo
- * en `tools/capture-overlay.mjs`, que reemplaza el WebSocket por uno falso.
+ * El WS mock envía el catálogo de servicios al conectar, para que el
+ * menú lateral aparezca igual que con el backend real.
  *
  *   npm run overlay                                → http://127.0.0.1:5500
  *   PowerShell: $env:OVERLAY_PORT=5600; npm run overlay  → otro puerto
@@ -13,13 +12,15 @@
  */
 
 import { createServer } from 'node:http';
+import { WebSocketServer } from 'ws';
 
 import { parseRequest, serveOverlayFile } from '../src/realtime/overlayStatic.js';
+import { DEFAULT_SERVICES } from '../src/rules/serviceCatalog.js';
 
 const HOST = '127.0.0.1';
 const PORT = Number(process.env.OVERLAY_PORT) || 5500;
 
-createServer(async (request, response) => {
+const server = createServer(async (request, response) => {
 
     if (request.method !== 'GET' && request.method !== 'HEAD') {
         response.writeHead(405).end();
@@ -35,7 +36,26 @@ createServer(async (request, response) => {
 
     await serveOverlayFile(request, response, url.pathname);
 
-}).on('error', error => {
+});
+
+/* WebSocket mock: envía el catálogo al conectar. */
+const wss = new WebSocketServer({ server, path: '/ws' });
+
+wss.on('connection', ws => {
+    const send = obj => {
+        if (ws.readyState === ws.OPEN) {
+            ws.send(JSON.stringify(obj));
+        }
+    };
+
+    /* Catálogo de servicios visible en el panel lateral. */
+    send({
+        type: 'service_menu',
+        services: DEFAULT_SERVICES.filter(s => s.menu !== false)
+    });
+});
+
+server.on('error', error => {
     if (error.code === 'EADDRINUSE') {
         console.error(`❌ El puerto ${PORT} está ocupado. Usa otro con la variable OVERLAY_PORT (ver README → Problemas comunes).`);
     } else {

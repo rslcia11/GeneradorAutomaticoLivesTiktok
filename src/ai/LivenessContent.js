@@ -19,6 +19,18 @@ export const INVITATIONS = Object.freeze([
     { text: 'Los espíritus del tarot están inquietos... esperan una pregunta...', intent: 'invite_share' },
     { text: '¿Hay algo importante que necesitas saber? Este es el momento...', intent: 'invite_share' },
     { text: 'Las cartas no mienten. ¿Te atreves a conocer la verdad?', intent: 'invite_share' },
+    { text: 'Tu primera lectura es completamente gratis. Solo escribe tu pregunta en el chat.', intent: 'invite_free' },
+    { text: '¡Únete a la lectura! Las cartas tienen un mensaje esperándote ahora mismo.', intent: 'invite_free' },
+    { text: 'Aprovecha — la primera consulta es gratis. ¿Qué quieres saber de tu futuro?', intent: 'invite_free' },
+    { text: 'Pregunta por tu futuro ahora. Primera lectura sin costo, solo por estar aquí.', intent: 'invite_free' },
+    { text: '¿Amor, dinero o trabajo? Tu lectura gratis te espera. Escribe en el chat.', intent: 'invite_free' },
+    { text: 'No te vayas sin tu carta. La primera lectura es gratis y tarda un momento.', intent: 'invite_free' },
+    { text: 'Únete a la lectura — el mago está listo para ti. Primera consulta gratuita.', intent: 'invite_free' },
+    { text: 'Las cartas sienten que alguien aquí necesita respuesta. ¿Eres tú? Escribe tu duda.', intent: 'invite_free' },
+    { text: 'Una pregunta, una carta, un camino. Y la primera lectura es gratis.', intent: 'invite_free' },
+    { text: '¿Qué te tiene pensando últimamente? Cuéntame en el chat. Primera consulta sin costo.', intent: 'invite_free' },
+    { text: 'El tarot no miente. Pregunta lo que de verdad importa. Primera lectura gratis.', intent: 'invite_free' },
+    { text: 'Aprovecha tu lectura gratis — escribe en el chat y las cartas hablan por ti.', intent: 'invite_free' },
 ]);
 
 export const READINGS = Object.freeze([

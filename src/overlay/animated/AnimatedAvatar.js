@@ -572,10 +572,13 @@ export class AnimatedAvatar {
         this.smoke  = new SmokePool({ texture: glow });
         this.glints = new CardGlints({ texture: spark, positions: ANCHORS.cards });
 
+        const cardImages = await FloatingCards.preload('assets/tarot/');
+
         this.readingCards = new FloatingCards({
             glowTexture: glow,
             origin: ball,
             slots: ANCHORS.readingSlots,
+            cardImages,
             onSparkle: (x, y, count) => this.#emitCardSparks(x, y, count),
             onReveal: (x, y, tint, name) => this.#celebrateReveal(x, y, tint, name)
         });
@@ -585,6 +588,7 @@ export class AnimatedAvatar {
             glowTexture: glow,
             origin: ball,
             slots: ANCHORS.tableSlots,
+            cardImages,
             onSparkle: (x, y, count) => this.#emitCardSparks(x, y, count),
             onReveal: () => {}
         });

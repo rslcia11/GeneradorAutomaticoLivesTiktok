@@ -14,15 +14,16 @@ function test(name, fn) {
     }
 }
 
-test('INVITATIONS tiene 15 entradas', () => {
-    assert.equal(INVITATIONS.length, 15);
+test('INVITATIONS tiene 27 entradas', () => {
+    assert.equal(INVITATIONS.length, 27);
 });
 
-test('Cada INVITATION tiene text e intent invite_share', () => {
+test('Cada INVITATION tiene text e intent válido', () => {
+    const VALID_INTENTS = new Set(['invite_share', 'invite_free']);
     for (const entry of INVITATIONS) {
         assert.equal(typeof entry.text, 'string');
         assert.ok(entry.text.length > 0);
-        assert.equal(entry.intent, 'invite_share');
+        assert.ok(VALID_INTENTS.has(entry.intent), `intent inesperado: ${entry.intent}`);
     }
 });
 

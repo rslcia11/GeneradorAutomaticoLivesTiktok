@@ -17,14 +17,14 @@ const WINDOW_MS = 120_000;
 
 /* Cada cuánto habla solo el mago, según cómo esté la sala. */
 const IDLE_EVERY_MS = Object.freeze({
-    quiet: 75_000,
-    warming: 150_000,
-    busy: 300_000
+    quiet: 20_000,
+    warming: 40_000,
+    busy: 90_000
 });
 
 /* Nunca habla solo encima de una respuesta ni recién empezado el LIVE. */
 const MIN_SILENCE_MS = 20_000;
-const FIRST_LINE_MS = 45_000;
+const FIRST_LINE_MS = 15_000;
 
 /*
  * Reconocer lo que hace el público (entrar, saludar, compartir, un like)

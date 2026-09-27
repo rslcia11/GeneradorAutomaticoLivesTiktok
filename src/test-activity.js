@@ -124,10 +124,10 @@ test('Con la sala activa habla mucho menos', () => {
 
     /* Lo que en silencio ya tocaría, con sala activa todavía no. */
     assert.equal(director.direct(first + IDLE_EVERY_MS.quiet).speak, null);
-    assert.equal(director.direct(first + WINDOW_MS - 1).speak, null, 'sigue callado mientras la sala comenta');
+    assert.equal(director.direct(first + IDLE_EVERY_MS.busy - 1).speak, null, 'sigue callado mientras la sala comenta');
 
-    /* Pasado el rato sin comentarios nuevos, retoma la iniciativa. */
-    assert.equal(director.direct(first + IDLE_EVERY_MS.busy).speak?.text, 'quiet-2');
+    /* Pasado el intervalo busy, retoma la iniciativa (aún en modo busy). */
+    assert.equal(director.direct(first + IDLE_EVERY_MS.busy).speak?.text, 'busy-2');
 });
 
 test('Nunca habla encima del mago: espera tras una respuesta', () => {

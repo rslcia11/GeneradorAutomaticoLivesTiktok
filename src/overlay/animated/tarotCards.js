@@ -61,12 +61,24 @@ function createCardMesh(texture) {
 
 export class FloatingCards {
 
-    constructor({ glowTexture, origin, slots, onSparkle = () => {}, onReveal = () => {} }) {
+    static async preload(basePath = 'assets/tarot/') {
+        const map = new Map();
+        await Promise.all(ARCANA.map(arcana => new Promise(resolve => {
+            const img = new Image();
+            img.onload = () => { map.set(arcana.name, img); resolve(); };
+            img.onerror = resolve;
+            img.src = basePath + arcana.slug + '.jpg';
+        })));
+        return map;
+    }
+
+    constructor({ glowTexture, origin, slots, cardImages = new Map(), onSparkle = () => {}, onReveal = () => {} }) {
 
         this.origin = origin;
         this.onSparkle = onSparkle;
         this.onReveal = onReveal;
 
+        this.cardImages = cardImages;
         this.backTexture = createBackTexture();
         this.sheenTexture = createSheenTexture();
         this.beamTexture = createBeamTexture();
@@ -258,7 +270,8 @@ export class FloatingCards {
     #frontTexture(arcana) {
 
         if (!this.frontTextures.has(arcana.name)) {
-            this.frontTextures.set(arcana.name, createFrontTexture(arcana));
+            const img = this.cardImages.get(arcana.name) ?? null;
+            this.frontTextures.set(arcana.name, createFrontTexture(arcana, img));
         }
 
         return this.frontTextures.get(arcana.name);

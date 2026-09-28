@@ -93,7 +93,10 @@ export class Hud {
         setTimer = (callback, ms) => setTimeout(callback, ms),
         clearTimer = handle => clearTimeout(handle),
         setRepeating = (callback, ms) => setInterval(callback, ms),
-        clearRepeating = handle => clearInterval(handle)
+        clearRepeating = handle => clearInterval(handle),
+
+        /* Inyectable para poder probar los huecos al azar de la franja. */
+        random = Math.random
     }) {
 
         this.elements = elements;
@@ -101,6 +104,7 @@ export class Hud {
         this.clearTimer = clearTimer;
         this.setRepeating = setRepeating;
         this.clearRepeating = clearRepeating;
+        this.random = random;
 
         this.contactTimer = null;
         this.menuTimer = null;
@@ -283,7 +287,25 @@ export class Hud {
         }
 
         const visibleMs = Math.max(1000, (contact.visibleSeconds ?? 12) * 1000);
-        const everyMs = Math.max(visibleMs + 1000, (contact.everyMinutes ?? 10) * 60_000);
+
+        /*
+         * Cuánto espera antes de volver a salir: AL AZAR en cada vuelta, no
+         * un compás fijo. Una franja que entra siempre cada X segundos se
+         * reconoce como bucle automático, y eso es lo que castiga TikTok.
+         *
+         * Los dos límites se ordenan: al revés (min 60, max 30) el rango
+         * quedaría en cero y volvería el compás fijo, justo lo que se evita.
+         * Y el hueco nunca baja del tiempo que la franja está visible, para
+         * que siempre haya pantalla limpia entre dos apariciones.
+         */
+        const bounds = [contact.gapMinSeconds ?? 15, contact.gapMaxSeconds ?? 60]
+            .map(seconds => Math.max(1, seconds) * 1000)
+            .sort((a, b) => a - b);
+
+        const minGapMs = Math.max(bounds[0], visibleMs);
+        const maxGapMs = Math.max(bounds[1], minGapMs);
+
+        const gapMs = () => minGapMs + this.random() * (maxGapMs - minGapMs);
 
         contactBanner.textContent = text;
 
@@ -309,15 +331,15 @@ export class Hud {
                     later(() => {
                         contactBanner.hidden = true;
 
-                        /* Se encadena la próxima vuelta con el mismo mecanismo. */
-                        later(show, Math.max(0, everyMs - visibleMs - FADE_MS));
+                        /* Se encadena la próxima vuelta, con un hueco nuevo. */
+                        later(show, gapMs());
                     }, FADE_MS);
                 }, visibleMs);
             }, 0);
         };
 
         /* La primera vez espera un poco: no arranca encima del saludo. */
-        later(show, Math.min(everyMs, FIRST_CONTACT_MS));
+        later(show, Math.min(gapMs(), FIRST_CONTACT_MS));
     }
 
     stopContact() {

@@ -82,7 +82,8 @@ Crea `streamer.config.json` en la raíz. **No se sube a git**: es para tus datos
         "text": "✨ ¿Quieres una consulta personalizada? Escríbeme al 09XXXXXXXX",
         "phone": "09XXXXXXXX",
         "visibleSeconds": 12,
-        "everyMinutes": 6
+        "gapMinSeconds": 15,
+        "gapMaxSeconds": 60
     },
     "promo": {
         "enabled": true,
@@ -91,8 +92,8 @@ Crea `streamer.config.json` en la raíz. **No se sube a git**: es para tus datos
 }
 ```
 
-- `contact.text` es la **franja** que aparece 15 s después de abrir el overlay y se repite cada `everyMinutes`.
-- `contact.phone` es el **cartel fijo** "Consulta privada" de la esquina inferior. Sin teléfono, el cartel no existe.
+- `contact.text` es la **franja** que aparece 15 s después de abrir el overlay y vuelve con un hueco **al azar** entre `gapMinSeconds` y `gapMaxSeconds`. Al azar a propósito: un compás fijo se lee como bucle automático (ver [ADR 0002](docs/adr/0002-live-sin-camara.md)).
+- `contact.phone` viaja **dentro** de esa franja, no en un cartel fijo. Sin teléfono, solo se muestra la frase.
 - `promo.text` es la pastilla fija de promoción.
 - Con `"enabled": false` no se muestra nada de ese bloque.
 

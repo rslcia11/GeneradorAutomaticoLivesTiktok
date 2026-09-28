@@ -51,7 +51,13 @@ test('Un archivo roto avisa pero no tumba la app', () => {
 test('Lee la frase y el teléfono del archivo', () => {
     const file = readStreamerConfig('./x.json', {
         read: () => JSON.stringify({
-            contact: { enabled: true, text: 'Escríbeme al 0999999999', visibleSeconds: 8, everyMinutes: 6 }
+            contact: {
+                enabled: true,
+                text: 'Escríbeme al 0999999999',
+                visibleSeconds: 8,
+                gapMinSeconds: 20,
+                gapMaxSeconds: 40
+            }
         })
     });
 
@@ -60,22 +66,38 @@ test('Lee la frase y el teléfono del archivo', () => {
         text: 'Escríbeme al 0999999999',
         phone: '',
         visibleSeconds: 8,
-        everyMinutes: 6
+        gapMinSeconds: 20,
+        gapMaxSeconds: 40
     });
 });
 
 test('El entorno manda sobre el archivo', () => {
-    const file = { contact: { enabled: true, text: 'Del archivo', everyMinutes: 6 } };
+    const file = { contact: { enabled: true, text: 'Del archivo', gapMaxSeconds: 90 } };
 
     const contact = resolveContact(file, {
         CONTACT_ENABLED: 'false',
         CONTACT_TEXT: 'Del entorno',
-        CONTACT_EVERY_MINUTES: '3'
+        CONTACT_GAP_MAX_SECONDS: '45'
     });
 
     assert.equal(contact.enabled, false);
     assert.equal(contact.text, 'Del entorno');
-    assert.equal(contact.everyMinutes, 3);
+    assert.equal(contact.gapMaxSeconds, 45);
+});
+
+test('El hueco entre apariciones se mide en segundos, no en minutos', () => {
+    /* Antes era un compás fijo (`everyMinutes`); ahora es un rango al azar. */
+    const contact = resolveContact({ contact: { enabled: true, text: 'Hola' } }, {});
+
+    assert.equal(contact.gapMinSeconds, 15);
+    assert.equal(contact.gapMaxSeconds, 60);
+    assert.equal(contact.everyMinutes, undefined, 'ya no existe el compás fijo');
+
+    /* Un .env viejo con CONTACT_EVERY_MINUTES no vuelve a imponer minutos. */
+    const viejo = resolveContact({}, { CONTACT_ENABLED: 'true', CONTACT_TEXT: 'Hola', CONTACT_EVERY_MINUTES: '6' });
+
+    assert.equal(viejo.gapMaxSeconds, 60);
+    assert.equal(viejo.everyMinutes, undefined);
 });
 
 test('Sin texto ni teléfono nunca se enciende, aunque esté marcada como activa', () => {
@@ -97,12 +119,13 @@ test('El teléfono del cartel fijo sale del archivo o del entorno, nunca del có
 
 test('Valores inválidos vuelven a los tiempos por defecto', () => {
     const contact = resolveContact(
-        { contact: { enabled: true, text: 'Hola', visibleSeconds: 'muchos', everyMinutes: -5 } },
+        { contact: { enabled: true, text: 'Hola', visibleSeconds: 'muchos', gapMinSeconds: -5, gapMaxSeconds: '' } },
         {}
     );
 
     assert.equal(contact.visibleSeconds, DEFAULT_CONTACT.visibleSeconds);
-    assert.equal(contact.everyMinutes, DEFAULT_CONTACT.everyMinutes);
+    assert.equal(contact.gapMinSeconds, DEFAULT_CONTACT.gapMinSeconds);
+    assert.equal(contact.gapMaxSeconds, DEFAULT_CONTACT.gapMaxSeconds);
 });
 
 

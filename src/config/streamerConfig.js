@@ -15,7 +15,10 @@ export const DEFAULT_CONTACT = Object.freeze({
     text: '',
     phone: '',
     visibleSeconds: 12,
-    everyMinutes: 10
+
+    /* Vuelve a aparecer al azar entre estos dos, en segundos. */
+    gapMinSeconds: 15,
+    gapMaxSeconds: 60
 });
 
 export function readStreamerConfig(path, { read = readFileSync, warn = console.warn } = {}) {
@@ -117,6 +120,17 @@ export function resolveContact(file = {}, env = {}) {
         text,
         phone,
         visibleSeconds: asNumber(env.CONTACT_VISIBLE_SECONDS ?? fromFile.visibleSeconds, DEFAULT_CONTACT.visibleSeconds),
-        everyMinutes: asNumber(env.CONTACT_EVERY_MINUTES ?? fromFile.everyMinutes, DEFAULT_CONTACT.everyMinutes)
+
+        /*
+         * El hueco entre dos apariciones es AL AZAR dentro de este rango, no
+         * fijo: una franja que entra siempre al mismo compás se lee como un
+         * bucle automático, que es lo que penaliza TikTok. Así sale a veces a
+         * los 15 s, a veces al minuto, y nunca marca un ritmo reconocible.
+         *
+         * Reemplaza a `everyMinutes`, que era un valor fijo. Si algún .env
+         * viejo todavía trae CONTACT_EVERY_MINUTES, se ignora.
+         */
+        gapMinSeconds: asNumber(env.CONTACT_GAP_MIN_SECONDS ?? fromFile.gapMinSeconds, DEFAULT_CONTACT.gapMinSeconds),
+        gapMaxSeconds: asNumber(env.CONTACT_GAP_MAX_SECONDS ?? fromFile.gapMaxSeconds, DEFAULT_CONTACT.gapMaxSeconds)
     };
 }

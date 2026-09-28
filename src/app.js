@@ -1048,7 +1048,7 @@ async function start() {
         logger.info(`🆓 Gratis: 1 respuesta cada ${servicePolicy.free.freeEveryHours} h por persona`);
         logger.info(
             config.contact.enabled && config.contact.text
-                ? `📞 Contacto: visible ${config.contact.visibleSeconds}s cada ${config.contact.everyMinutes} min`
+                ? `📞 Contacto: visible ${config.contact.visibleSeconds}s, reaparece al azar entre ${config.contact.gapMinSeconds} y ${config.contact.gapMaxSeconds}s`
                 : '📵 Franja de contacto desactivada (streamer.config.json → contact.enabled)'
         );
         logger.info(

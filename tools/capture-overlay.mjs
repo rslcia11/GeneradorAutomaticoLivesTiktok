@@ -84,7 +84,10 @@ const SAMPLE = `
         text: '✨ ¿Consulta personalizada? Escríbeme al 09XXXXXXXX',
         phone: '09XXXXXXXX',
         visibleSeconds: 12,
-        everyMinutes: 6
+
+        /* Sin azar y corto: la captura no espera un hueco de hasta 60 s. */
+        gapMinSeconds: 15,
+        gapMaxSeconds: 15
     }});
 
     send({ type: 'comment', user: { nickname: 'Mayra' }, content: '¿encontraré trabajo pronto?' });

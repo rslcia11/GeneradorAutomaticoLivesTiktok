@@ -56,7 +56,8 @@ function createElement(tag = 'div') {
 
 globalThis.document = { createElement };
 
-function createHud() {
+function createHud({ random = Math.random } = {}) {
+
     const elements = {
         serviceMenu: createElement(),
         serviceMenuList: createElement('ul'),
@@ -67,12 +68,17 @@ function createHud() {
     };
 
     const timers = [];
+
+    /* Los ms de cada temporizador, en el mismo orden que `timers`. */
+    const delays = [];
     const repeating = [];
 
     const hud = new Hud({
         elements,
-        setTimer: callback => {
+        random,
+        setTimer: (callback, ms) => {
             timers.push(callback);
+            delays.push(ms);
             return timers.length;
         },
         clearTimer: () => {},
@@ -83,7 +89,7 @@ function createHud() {
         clearRepeating: handle => repeating.splice(handle - 1, 1)
     });
 
-    return { hud, elements, timers, repeating };
+    return { hud, elements, timers, delays, repeating };
 }
 
 /* Busca en todo el árbol, no solo entre los hijos directos. */
@@ -441,7 +447,7 @@ test('La franja de contacto aparece y se va sola', () => {
 
     hud.handle({
         type: 'contact_banner',
-        contact: { enabled: true, text: 'Consultas: +593...', visibleSeconds: 10, everyMinutes: 8 }
+        contact: { enabled: true, text: 'Consultas: +593...', visibleSeconds: 10 }
     });
 
     assert.equal(elements.contactBanner.textContent, 'Consultas: +593...');
@@ -470,6 +476,89 @@ test('La franja de contacto aparece y se va sola', () => {
     assert.equal(elements.contactBanner.hidden, false, 'segunda vuelta');
 
     hud.destroy();
+});
+
+/*
+ * Un compás fijo ("cada 30 s exactos") se reconoce como bucle automático.
+ * El hueco se sortea en cada vuelta, dentro del rango configurado.
+ */
+test('La franja vuelve con huecos al azar, nunca con el mismo compás', () => {
+    const sorteos = [0, 0.5, 1, 0.25];
+    let i = 0;
+
+    const { hud, timers, delays } = createHud({ random: () => sorteos[i++ % sorteos.length] });
+
+    hud.handle({
+        type: 'contact_banner',
+        contact: {
+            enabled: true,
+            text: 'Consultas: +593...',
+            visibleSeconds: 1,
+
+            /* Por encima de la primera espera (15 s), para no confundirlas. */
+            gapMinSeconds: 20,
+            gapMaxSeconds: 60
+        }
+    });
+
+    /*
+     * Solo hay un temporizador vivo a la vez: cada uno agenda el siguiente,
+     * así que ejecutarlos en orden recorre las vueltas completas.
+     */
+    for (let paso = 0; paso < 16; paso++) {
+        timers[paso]();
+    }
+
+    /*
+     * Cada vuelta agenda cuatro temporizadores y el cuarto es el hueco:
+     * [primera espera] → animar, visible, fundido, HUECO → animar, ...
+     */
+    const huecos = [delays[4], delays[8], delays[12]];
+
+    /*
+     * El sorteo 0 se gasta en la primera espera, así que a los huecos les
+     * tocan 0.5, 1 y 0.25: el medio, el techo y un cuarto del rango 20–60 s.
+     */
+    assert.deepEqual(huecos, [40_000, 60_000, 30_000]);
+    assert.ok(new Set(huecos).size > 1, `siempre el mismo hueco: ${huecos.join(', ')}`);
+
+    /* La primera espera es corta: no arranca encima del saludo. */
+    assert.equal(delays[0], 15_000);
+
+    hud.destroy();
+});
+
+/* El hueco de la primera vuelta, con los tiempos dados. */
+function primerHueco(contact, random) {
+    const { hud, timers, delays } = createHud({ random });
+
+    hud.handle({ type: 'contact_banner', contact: { enabled: true, text: 'x', ...contact } });
+
+    /* Primera espera, animar, visible, fundido: el siguiente es el hueco. */
+    for (let paso = 0; paso < 4; paso++) {
+        timers[paso]();
+    }
+
+    hud.destroy();
+
+    return delays[4];
+}
+
+test('Límites al revés no dejan un compás fijo, y el hueco respeta lo visible', () => {
+
+    /* Invertidos (60 y 30): se ordenan, así que el sorteo del medio cae en medio. */
+    assert.equal(
+        primerHueco({ visibleSeconds: 1, gapMinSeconds: 60, gapMaxSeconds: 30 }, () => 0.5),
+        45_000,
+        'con los límites al revés el rango no puede quedar en cero'
+    );
+
+    /* Un hueco más corto que lo visible se levanta al rato visible. */
+    assert.equal(
+        primerHueco({ visibleSeconds: 20, gapMinSeconds: 2, gapMaxSeconds: 3 }, () => 0),
+        20_000,
+        'siempre hay pantalla limpia entre dos apariciones'
+    );
 });
 
 test('Desactivada o sin texto, la franja nunca aparece', () => {

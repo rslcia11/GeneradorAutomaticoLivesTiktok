@@ -20,7 +20,7 @@ import { ThankYouTemplates } from './ai/ThankYouTemplates.js';
 import { ServicePolicy } from './rules/ServicePolicy.js';
 import { createLedgerSaver, loadLedger } from './rules/ledgerStore.js';
 import { decorateMenu, normalizeGifts } from './rules/giftCatalog.js';
-import { asNumber, readStreamerConfig, resolveContact,resolvePromo, resolveTiktokUsername } from './config/streamerConfig.js';
+import { asNumber, readStreamerConfig, resolveContact,resolvePromo, resolveServiceMenu, resolveTiktokUsername } from './config/streamerConfig.js';
 import { logger } from './logger.js';
 import { ackLine } from './live/ackLines.js';
 
@@ -82,6 +82,7 @@ const config = {
      */
     contact: resolveContact(streamer, process.env),
     promo: resolvePromo(streamer, process.env),
+    serviceMenu: resolveServiceMenu(streamer, process.env),
 
     /* Memoria de apoyo de 24 h (quién regaló y quién ya usó su gratis). */
     supportLedgerFile:
@@ -288,7 +289,17 @@ function donorBoardEvent() {
 /* Regalos reales de la sala (se piden al conectar). Vacío = menú con íconos. */
 let roomGifts = [];
 
+/*
+ * Panel de recompensas. Devuelve null si está apagado (lo normal): así no
+ * hay ningún camino que lo pinte, ni al conectarse el overlay ni al llegar
+ * la lista de regalos de la sala.
+ */
 function menuEvent() {
+
+    if (!config.serviceMenu.enabled) {
+        return null;
+    }
+
     return systemEvent('service_menu', {
         services: decorateMenu(
             servicePolicy.menu(),
@@ -313,6 +324,10 @@ async function loadRoomGifts() {
         }
 
         const menu = menuEvent();
+
+        if (!menu) {
+            return;
+        }
 
         gateway.broadcast(menu);
 
@@ -347,7 +362,7 @@ const gateway = new RealtimeGateway({
         donorBoardEvent(),
         systemEvent('contact_banner', { contact: config.contact }),
         { type: 'promo_banner', promo: config.promo }
-    ]
+    ].filter(Boolean)
 });
 
 

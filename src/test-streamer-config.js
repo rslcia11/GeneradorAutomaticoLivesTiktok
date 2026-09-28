@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { DEFAULT_CONTACT, readStreamerConfig, resolveContact, resolvePromo, resolveTiktokUsername } from './config/streamerConfig.js';
+import { DEFAULT_CONTACT, readStreamerConfig, resolveContact, resolvePromo, resolveServiceMenu, resolveTiktokUsername } from './config/streamerConfig.js';
 
 let passed = 0;
 let total = 0;
@@ -157,6 +157,26 @@ test('Env var PROMO_TEXT tiene prioridad sobre el archivo', () => {
     );
     assert.equal(promo.text, 'Del entorno');
     assert.equal(promo.enabled, true);
+});
+
+
+// resolveServiceMenu
+test('El panel de recompensas está apagado si nadie lo pide', () => {
+    assert.equal(resolveServiceMenu().enabled, false, 'sin configuración');
+    assert.equal(resolveServiceMenu({}, {}).enabled, false);
+    assert.equal(resolveServiceMenu({ serviceMenu: {} }, {}).enabled, false);
+    assert.equal(resolveServiceMenu({ serviceMenu: { enabled: false } }, {}).enabled, false);
+});
+
+test('El panel de recompensas se enciende a propósito, por archivo o por entorno', () => {
+    assert.equal(resolveServiceMenu({ serviceMenu: { enabled: true } }, {}).enabled, true);
+    assert.equal(resolveServiceMenu({}, { SERVICE_MENU_ENABLED: 'true' }).enabled, true);
+
+    /* El entorno manda sobre el archivo, como en contacto y promo. */
+    assert.equal(
+        resolveServiceMenu({ serviceMenu: { enabled: true } }, { SERVICE_MENU_ENABLED: 'false' }).enabled,
+        false
+    );
 });
 
 

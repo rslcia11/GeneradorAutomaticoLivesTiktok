@@ -58,6 +58,27 @@ export function resolvePromo(file = {}, env = {}) {
 }
 
 /**
+ * ¿Se muestra el panel de recompensas (qué regalo da qué lectura)?
+ *
+ * **Apagado por defecto** (decisión del dueño, 2026-09-28): tener íconos de
+ * regalo y monedas en pantalla es uno de los disparadores por los que TikTok
+ * suspendió los regalos del primer LIVE (ver docs/adr/0002). El código del
+ * panel se queda entero; solo no se envía al overlay.
+ *
+ * Para volver a mostrarlo: `SERVICE_MENU_ENABLED=true` en el .env de la
+ * instancia, o `"serviceMenu": { "enabled": true }` en streamer.config.json.
+ */
+export function resolveServiceMenu(file = {}, env = {}) {
+    const fromFile = file.serviceMenu ?? {};
+
+    const enabled = env.SERVICE_MENU_ENABLED !== undefined
+        ? asBoolean(env.SERVICE_MENU_ENABLED)
+        : asBoolean(fromFile.enabled);
+
+    return { enabled };
+}
+
+/**
  * Usuario de TikTok del streamer.
  * Prioridad: TIKTOK_USERNAME en .env > tiktokUsername en streamer.config.json.
  * Lanza si no está configurado en ninguno de los dos.

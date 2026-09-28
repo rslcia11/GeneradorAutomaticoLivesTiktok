@@ -78,6 +78,12 @@ cliente sale en vivo, y se conecta solo.
 La URL es su llave: si la comparte, cualquiera ve su overlay. Si se filtra,
 cambia `OVERLAY_KEY` en su `.env`, reinicia la instancia y mándale la nueva.
 
+**El panel de recompensas viene apagado.** Si un cliente quiere mostrar qué
+regalo da qué lectura, se pone `SERVICE_MENU_ENABLED=true` en el `.env` de su
+instancia y se reinicia (`sudo systemctl restart tarot@beto`). Apagado es lo
+normal: íconos de regalo permanentes en pantalla son uno de los disparadores
+de TikTok (ver [ADR 0002](adr/0002-live-sin-camara.md)).
+
 **Volumen de la música, sin desplegar.** Se agrega `&musica=` con el
 porcentaje: `&musica=0` la apaga, `&musica=10` la sube. Por defecto es 3,5 %,
 que se oye de fondo sin tapar la voz. El cliente cambia la URL en su fuente

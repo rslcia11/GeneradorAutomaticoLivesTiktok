@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import { Hud } from './overlay/hud.js';
 
@@ -631,6 +632,25 @@ test('Solo maneja sus propios eventos', () => {
     assert.equal(hud.handle({ type: 'ai_response' }), false);
     assert.equal(hud.handle({ type: 'gift' }), false);
     assert.equal(hud.handle(null), false);
+});
+
+
+/*
+ * El panel de recompensas se apaga por configuración, NO borrando el HTML:
+ * si el bloque desaparece, `SERVICE_MENU_ENABLED=true` deja de funcionar y
+ * el interruptor documentado en DEPLOY.md se vuelve mentira. Ya pasó.
+ */
+test('El bloque del menú sigue en el HTML, oculto, para poder reactivarlo', () => {
+    const html = readFileSync(new URL('./overlay/index.html', import.meta.url), 'utf8');
+
+    assert.match(html, /id="service-menu"/, 'falta el <aside> del menú');
+    assert.match(html, /id="service-menu-list"/);
+    assert.match(html, /id="service-menu-timer-time"/);
+
+    /* Y arranca oculto: sin el evento del backend no se ve nunca. */
+    const bloque = html.slice(html.indexOf('id="service-menu"'), html.indexOf('</aside>'));
+
+    assert.match(bloque, /hidden/, 'el menú debe arrancar oculto');
 });
 
 

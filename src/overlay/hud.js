@@ -397,6 +397,8 @@ export class Hud {
 
         const { serviceMenu } = this.elements;
 
+        if (!serviceMenu) return;
+
         if (this.menuTimer !== null) {
             this.clearTimer(this.menuTimer);
         }
